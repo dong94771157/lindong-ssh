@@ -17,7 +17,7 @@ permissions:
 
 env:
   WAILS_VERSION: v2.16.0
-  R2_ACCOUNT_ID: b0706cf2749dc0022f4ea75e684cfcd
+  R2_ACCOUNT_ID: b0706cf2749dc0022f4ea75e684cfcd4
   R2_BUCKET: lindong-ssh
 
 jobs:
