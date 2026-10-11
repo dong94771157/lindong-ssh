@@ -128,6 +128,8 @@ jobs:
       - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          # 手动触发时没有 tag，这里显式指定；标签不存在会自动创建在当前提交上
+          tag_name: v${{ needs.verify-version.outputs.version }}
           name: 琳东SSH管理软件 v${{ needs.verify-version.outputs.version }}
           body_path: release/changelog.md
           files: |
