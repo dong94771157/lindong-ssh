@@ -1,0 +1,8 @@
+{
+  "version": "1.1.0",
+  "notes": "全新跨平台版本：Windows / Linux(AppImage、deb) / macOS(通用版) 同步发布；在线更新按平台选择安装包，SHA256 校验、失败自动重试",
+  "force": true,
+  "url": "https://a.ldnet.sryze.cc/lindong-ssh.exe?v=1.1.0",
+  "size": 12958720,
+  "sha256": "c9f2b533f8d4c4775be0c2a7689fc387d1e997b5f656606811bf947895c8a967"
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "琳东SSH管理软件",
+  "outputfilename": "琳东SSH管理软件",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev": "",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "琳东"
+  },
+  "info": {
+    "companyName": "琳东",
+    "productName": "琳东SSH管理软件",
+    "productVersion": "1.1.0",
+    "comments": "安全高效的SSH连接管理软件",
+    "copyright": "© 2026 琳东"
+  },
+  "nsisType": "none"
+}

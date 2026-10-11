@@ -1,0 +1,18 @@
+# 构建产物
+/build/
+/dist/
+# 本地安装包与绿色版（由流水线发布）
+/installer/*.exe
+/installer/*.tmp
+/琳东SSH管理软件.exe
+# release 目录中的大二进制（version.json / changelog.md 仍跟踪）
+/release/lindong-ssh.exe
+# 用户数据与日志
+/servers.json
+/ai.json
+*.log
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

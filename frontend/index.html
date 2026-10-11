@@ -1,0 +1,1963 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>琳东SSH管理软件</title>
+<link rel="icon" href="/logo.jpg">
+<link rel="stylesheet" href="/xterm.css">
+<style>
+  /* ---------------- 自定义字体（本地离线） ---------------- */
+  @font-face {
+    font-family: 'Inter'; font-style: normal; font-weight: 100 900; font-display: swap;
+    src: url('/fonts/Inter-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: 'Inter'; font-style: normal; font-weight: 100 900; font-display: swap;
+    src: url('/fonts/Inter-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'JetBrains Mono'; font-style: normal; font-weight: 100 900; font-display: swap;
+    src: url('/fonts/JetBrainsMono-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: 'JetBrains Mono'; font-style: normal; font-weight: 100 900; font-display: swap;
+    src: url('/fonts/JetBrainsMono-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* 主题强调色（由 body[data-accent] 切换） */
+  :root, body[data-accent="blue"] {
+    --accent: #4f7cff;
+    --accent-2: #7c5cff;
+    --accent-hover: #6b8fff;
+    --accent-soft: rgba(79,124,255,.14);
+    --accent-glow: rgba(79,124,255,.45);
+  }
+  body[data-accent="purple"] {
+    --accent: #8b5cf6; --accent-2: #d946ef; --accent-hover: #a78bfa;
+    --accent-soft: rgba(139,92,246,.14); --accent-glow: rgba(139,92,246,.45);
+  }
+  body[data-accent="cyan"] {
+    --accent: #06b6d4; --accent-2: #3b82f6; --accent-hover: #22d3ee;
+    --accent-soft: rgba(6,182,212,.14); --accent-glow: rgba(6,182,212,.45);
+  }
+  body[data-accent="green"] {
+    --accent: #10b981; --accent-2: #22d3ee; --accent-hover: #34d399;
+    --accent-soft: rgba(16,185,129,.14); --accent-glow: rgba(16,185,129,.45);
+  }
+
+  :root {
+    --bg: #0b0e16;
+    --bg-2: #0f1320;
+    --sidebar: #121627;
+    --sidebar-border: rgba(255,255,255,.07);
+    --text: #e8eaf5;
+    --text-dim: #8b90a7;
+    --danger: #ff5f6d;
+    --success: #3ddc97;
+    --warn: #fbbf24;
+    --card: rgba(255,255,255,.035);
+    --card-hover: rgba(255,255,255,.07);
+    --sidebar-w: 284px;
+  }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: "Inter", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* 科技感背景辉光 */
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(900px 500px at 85% -10%, var(--accent-soft), transparent 60%),
+      radial-gradient(700px 500px at -10% 110%, rgba(124,92,255,.10), transparent 60%);
+    transition: background .4s;
+  }
+  #sidebar, #main { position: relative; z-index: 1; }
+
+  /* ---------- 侧边栏 ---------- */
+  #sidebar {
+    width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,0)) var(--sidebar);
+    border-right: 1px solid var(--sidebar-border);
+    display: flex;
+    flex-direction: column;
+    transition: width .28s cubic-bezier(.4,0,.2,1), min-width .28s cubic-bezier(.4,0,.2,1), opacity .2s;
+    overflow: hidden;
+  }
+  body.collapsed #sidebar { width: 0; min-width: 0; opacity: 0; border-right-color: transparent; }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 16px;
+    border-bottom: 1px solid var(--sidebar-border);
+  }
+  .brand img {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    object-fit: cover;
+    box-shadow: 0 4px 16px var(--accent-glow);
+  }
+  .brand .title { font-size: 15.5px; font-weight: 700; letter-spacing: .3px; white-space: nowrap;
+    background: linear-gradient(90deg, #fff, #b9c4ff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .brand .subtitle { font-size: 10.5px; color: var(--text-dim); margin-top: 3px; letter-spacing: 1px; white-space: nowrap; }
+  #btnCollapse {
+    margin-left: auto; flex: none; width: 26px; height: 26px; border-radius: 8px;
+    background: none; border: 1px solid var(--sidebar-border); color: var(--text-dim);
+    cursor: pointer; font-size: 13px; transition: all .2s; display: flex; align-items: center; justify-content: center;
+  }
+  #btnCollapse:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+  /* 折叠后的展开按钮 */
+  #btnExpand {
+    position: fixed; top: 12px; left: 12px; z-index: 50;
+    width: 38px; height: 38px; border-radius: 10px;
+    background: var(--sidebar); border: 1px solid var(--sidebar-border); color: var(--text);
+    cursor: pointer; font-size: 17px; display: none; align-items: center; justify-content: center;
+    box-shadow: 0 6px 20px rgba(0,0,0,.45);
+  }
+  #btnExpand:hover { color: var(--accent); border-color: var(--accent); }
+  body.collapsed #btnExpand { display: flex; }
+
+  .search-box { padding: 12px 14px 6px; position: relative; }
+  .search-box input {
+    width: 100%;
+    padding: 9px 34px 9px 12px;
+    background: var(--bg-2);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 9px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .search-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  #btnPingAll {
+    position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
+    width: 22px; height: 22px; border: none; background: none; color: var(--text-dim);
+    cursor: pointer; font-size: 12px; border-radius: 6px;
+  }
+  #btnPingAll:hover { color: var(--accent); }
+  #btnPingAll.spinning { animation: spin 1s linear infinite; color: var(--accent); }
+  @keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+
+  #serverList {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 10px;
+  }
+  #serverList::-webkit-scrollbar { width: 6px; }
+  #serverList::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 3px; }
+  #serverList::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  .server-card {
+    background: var(--card);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 11px 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .15s, box-shadow .15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .server-card::before {
+    content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px;
+    border-radius: 0 3px 3px 0; background: transparent; transition: background .2s;
+  }
+  .server-card:hover {
+    background: var(--card-hover); border-color: var(--sidebar-border);
+    transform: translateX(2px);
+  }
+  .server-card:hover::before { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+  .server-card .name {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-right: 56px;
+  }
+  .server-card .name .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4a5170; flex-shrink: 0; position: relative;
+  }
+  .server-card .name .dot.good, .server-card .name .dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .server-card .name .dot.mid { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+  .server-card .name .dot.bad { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+  .server-card .name .dot.online::after {
+    content: ''; position: absolute; inset: -3px; border-radius: 50%;
+    border: 2px solid var(--success); opacity: .6; animation: pulse 1.6s ease-out infinite;
+  }
+  @keyframes pulse { 0% { transform: scale(.6); opacity: .7; } 100% { transform: scale(1.5); opacity: 0; } }
+  .server-card .addr {
+    font-size: 12px; color: var(--text-dim); margin-top: 5px; padding-left: 16px;
+    font-family: "JetBrains Mono", Consolas, monospace; display: flex; align-items: center; gap: 8px;
+  }
+  .lat {
+    margin-left: auto; flex: none; font-family: "JetBrains Mono", Consolas, monospace;
+    font-size: 10.5px; padding: 1px 7px; border-radius: 20px; font-weight: 500;
+    background: rgba(255,255,255,.06); color: var(--text-dim);
+  }
+  .lat.good { background: rgba(61,220,151,.13); color: var(--success); }
+  .lat.mid { background: rgba(251,191,36,.13); color: var(--warn); }
+  .lat.bad { background: rgba(255,95,109,.13); color: var(--danger); }
+  .lat.testing { background: var(--accent-soft); color: var(--accent); }
+  .server-card .ops {
+    position: absolute;
+    top: 9px; right: 9px;
+    display: none;
+    gap: 4px;
+  }
+  .server-card:hover .ops { display: flex; }
+  .server-card .ops button {
+    background: rgba(0,0,0,.4);
+    border: 1px solid var(--sidebar-border);
+    color: var(--text-dim);
+    width: 26px; height: 26px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .server-card .ops button:hover { color: #fff; background: var(--accent); border-color: var(--accent); }
+  .server-card .ops button.del:hover { background: var(--danger); border-color: var(--danger); }
+
+  .empty-tip {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-top: 40px;
+    line-height: 1.8;
+  }
+
+  .sidebar-footer { padding: 12px 14px; border-top: 1px solid var(--sidebar-border); }
+  .update-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 10px; }
+  .ghost-btn {
+    background: none; border: 1px solid var(--sidebar-border); color: var(--text-dim);
+    padding: 5px 10px; border-radius: 7px; font-size: 12px; cursor: pointer; transition: all .2s;
+    font-family: inherit; white-space: nowrap;
+  }
+  .ghost-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  #verLabel { font-size: 11px; color: #5a6178; font-family: "JetBrains Mono", Consolas, monospace; }
+  .upd-ver { color: var(--accent); }
+  .upd-notes {
+    max-height: 180px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+    background: var(--bg); border: 1px solid var(--sidebar-border); border-radius: 10px;
+    padding: 12px 14px; font-size: 13px; color: #b8bfcf; line-height: 1.7; margin-bottom: 14px;
+  }
+  .upd-progress-wrap { display: none; margin-bottom: 14px; }
+  .upd-progress {
+    height: 8px; background: var(--bg); border: 1px solid var(--sidebar-border);
+    border-radius: 4px; overflow: hidden;
+  }
+  .upd-bar { height: 100%; width: 0%; border-radius: 4px; background: linear-gradient(90deg,var(--accent),var(--accent-2)); box-shadow: 0 0 10px var(--accent-glow); transition: width .2s; }
+  .upd-pct { text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 6px; font-family: "JetBrains Mono", Consolas, monospace; }
+  #btnAdd {
+    width: 100%;
+    padding: 11px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .2s, filter .2s;
+    box-shadow: 0 4px 16px var(--accent-glow);
+  }
+  #btnAdd:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 6px 22px var(--accent-glow); }
+  #btnAdd:active { transform: translateY(0); }
+
+  /* ---------- 主区域 ---------- */
+  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  #tabbar {
+    height: 42px;
+    background: rgba(18,22,39,.7);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--sidebar-border);
+    display: flex;
+    align-items: flex-end;
+    overflow-x: auto;
+    flex-shrink: 0;
+  }
+  #tabbar::-webkit-scrollbar { height: 0; }
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px;
+    height: 34px;
+    margin: 4px 0 0 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 9px 9px 0 0;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    user-select: none;
+    transition: color .15s, background .15s;
+  }
+  .tab:hover { color: var(--text); background: rgba(255,255,255,.04); }
+  .tab.active {
+    background: var(--bg-2); color: var(--text);
+    border-color: var(--sidebar-border);
+    box-shadow: inset 0 2px 0 var(--accent);
+  }
+  .tab .t-dot { width: 7px; height: 7px; border-radius: 50%; background: #4a5170; flex: none; }
+  .tab .t-dot.on { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .tab .t-dot.off { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+  .tab .close {
+    border: none; background: none; color: inherit;
+    cursor: pointer; font-size: 14px; line-height: 1;
+    padding: 2px 5px; border-radius: 6px;
+  }
+  .tab .close:hover { background: rgba(255,255,255,.14); color: #fff; }
+
+  #terminalArea { flex: 1; position: relative; background: #080a10; }
+  .term-pane { position: absolute; inset: 0; padding: 8px 0 0 10px; display: none; }
+  .term-pane.active { display: block; }
+  .term-pane .xterm { height: 100%; }
+
+  .term-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(8,10,16,.82);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    z-index: 5;
+    backdrop-filter: blur(3px);
+  }
+  .term-overlay.show { display: flex; }
+  .term-overlay .msg {
+    font-size: 14px; color: var(--text-dim); max-width: 70%; text-align: center;
+    word-break: break-word; line-height: 1.7;
+  }
+  .term-overlay .msg.err { color: var(--danger); }
+  .term-overlay button {
+    padding: 9px 26px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 4px 16px var(--accent-glow);
+    transition: filter .2s, transform .15s;
+  }
+  .term-overlay button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+  /* 欢迎页 */
+  #welcome {
+    position: absolute; inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 2;
+  }
+  #welcome .w-logo {
+    width: 104px; height: 104px; border-radius: 26px;
+    box-shadow: 0 0 0 1px var(--sidebar-border), 0 12px 48px var(--accent-glow);
+    animation: floaty 4s ease-in-out infinite;
+  }
+  @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  #welcome h2 {
+    font-size: 24px; font-weight: 700; letter-spacing: .5px;
+    background: linear-gradient(90deg, #fff, #aeb9ff 60%, var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  #welcome p { color: var(--text-dim); font-size: 13px; }
+
+  /* ---------- 弹窗 ---------- */
+  .modal-mask {
+    position: fixed; inset: 0;
+    background: rgba(5,7,12,.62);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    animation: fadeIn .18s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal-mask.show { display: flex; }
+  .modal {
+    width: 440px;
+    background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01)) var(--sidebar);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.02) inset;
+    animation: popIn .22s cubic-bezier(.34,1.3,.5,1);
+    max-height: 88vh; overflow-y: auto;
+  }
+  @keyframes popIn { from { transform: scale(.94) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+  .modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 18px; }
+  .form-row { margin-bottom: 14px; }
+  .form-row label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+  .form-row input, .form-row textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-2);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 9px;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    font-family: inherit;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .form-row input:focus, .form-row textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .form-row textarea { resize: vertical; min-height: 72px; font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px; }
+  .form-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+  .modal-btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .modal-btns button {
+    padding: 9px 22px;
+    border: none;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: filter .2s, background .2s, transform .15s;
+  }
+  .btn-cancel { background: rgba(255,255,255,.08); color: var(--text); }
+  .btn-cancel:hover { background: rgba(255,255,255,.14); }
+  .btn-ok { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; box-shadow: 0 4px 14px var(--accent-glow); }
+  .btn-ok:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+  /* ---------- 设置面板 ---------- */
+  .setting-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .setting-row .s-label { font-size: 13px; color: var(--text); }
+  .setting-row .s-hint { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+  .seg { display: flex; background: var(--bg-2); border: 1px solid var(--sidebar-border); border-radius: 9px; padding: 3px; gap: 3px; }
+  .seg button {
+    border: none; background: none; color: var(--text-dim); font-family: inherit;
+    padding: 6px 14px; border-radius: 7px; font-size: 12px; cursor: pointer; transition: all .15s;
+  }
+  .seg button.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-weight: 600; box-shadow: 0 2px 8px var(--accent-glow); }
+  .seg button:not(.on):hover { color: var(--text); }
+  .theme-dots { display: flex; gap: 10px; }
+  .theme-dots button {
+    width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
+    position: relative; transition: transform .15s;
+  }
+  .theme-dots button:hover { transform: scale(1.12); }
+  .theme-dots button.on { border-color: #fff; box-shadow: 0 0 0 2px var(--bg-2), 0 0 12px rgba(255,255,255,.3); }
+  .theme-dots button[data-accent="blue"] { background: linear-gradient(135deg,#4f7cff,#7c5cff); }
+  .theme-dots button[data-accent="purple"] { background: linear-gradient(135deg,#8b5cf6,#d946ef); }
+  .theme-dots button[data-accent="cyan"] { background: linear-gradient(135deg,#06b6d4,#3b82f6); }
+  .theme-dots button[data-accent="green"] { background: linear-gradient(135deg,#10b981,#22d3ee); }
+
+  /* ---------- 关于我们 ---------- */
+  .ver-row { text-align: center; margin-top: 8px; }
+  .about-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+  .about-head img {
+    width: 52px; height: 52px; border-radius: 14px; object-fit: cover;
+    border: 1px solid var(--sidebar-border); box-shadow: 0 4px 16px var(--accent-glow);
+  }
+  .about-name { font-size: 16px; font-weight: 700; color: var(--text); }
+  .about-ver { font-size: 12px; color: var(--text-dim); margin-top: 3px; font-family: "JetBrains Mono", Consolas, monospace; }
+  .about-group { margin-bottom: 14px; }
+  .about-group .g-label { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+  .about-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--bg-2); border: 1px solid var(--sidebar-border); border-radius: 10px;
+    padding: 9px 12px; margin-bottom: 8px; font-size: 13px;
+  }
+  .about-item .a-link { color: var(--accent); cursor: pointer; text-decoration: none; word-break: break-all; text-align: left; }
+  .about-item .a-link:hover { text-decoration: underline; }
+  .about-item .a-val { color: #b8bfcf; }
+  .about-copy {
+    flex: none; background: none; border: 1px solid var(--sidebar-border); color: var(--text-dim);
+    padding: 3px 12px; border-radius: 7px; font-size: 12px; cursor: pointer; transition: all .2s; font-family: inherit;
+  }
+  .about-copy:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+  /* ---------- AI 助手抽屉 ---------- */
+  #aiDrawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 400px; max-width: 92vw;
+    background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.005)) var(--sidebar);
+    border-left: 1px solid var(--sidebar-border);
+    box-shadow: -16px 0 50px rgba(0,0,0,.5);
+    z-index: 90; display: flex; flex-direction: column;
+    transform: translateX(105%); transition: transform .3s cubic-bezier(.4,0,.2,1);
+  }
+  #aiDrawer.show { transform: translateX(0); }
+  .ai-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 18px; border-bottom: 1px solid var(--sidebar-border);
+  }
+  .ai-head .ai-ico {
+    width: 34px; height: 34px; border-radius: 10px; flex: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: flex; align-items: center; justify-content: center; font-size: 17px;
+    box-shadow: 0 4px 14px var(--accent-glow);
+  }
+  .ai-head .ai-t { font-size: 14.5px; font-weight: 700; }
+  .ai-head .ai-s { font-size: 11px; color: var(--text-dim); margin-top: 2px; font-family: "JetBrains Mono", monospace; }
+  .ai-head button {
+    margin-left: auto; width: 30px; height: 30px; border-radius: 8px; flex: none;
+    background: none; border: 1px solid var(--sidebar-border); color: var(--text-dim);
+    cursor: pointer; font-size: 14px; transition: all .2s;
+  }
+  .ai-head button:hover { color: var(--accent); border-color: var(--accent); }
+  #aiMessages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  #aiMessages::-webkit-scrollbar { width: 6px; }
+  #aiMessages::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 3px; }
+  .ai-empty { margin: auto; text-align: center; color: var(--text-dim); font-size: 13px; line-height: 2; }
+  .ai-empty .big { font-size: 38px; display: block; margin-bottom: 8px; }
+  .ai-msg { display: flex; gap: 9px; max-width: 92%; }
+  .ai-msg .av {
+    width: 28px; height: 28px; border-radius: 8px; flex: none; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ai-msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .ai-msg.user .av { background: rgba(255,255,255,.1); }
+  .ai-msg.assistant .av { background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 2px 10px var(--accent-glow); }
+  .ai-bubble {
+    background: var(--bg-2); border: 1px solid var(--sidebar-border); border-radius: 12px;
+    padding: 10px 13px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; word-break: break-word;
+  }
+  .ai-msg.user .ai-bubble { background: var(--accent-soft); border-color: transparent; }
+  .ai-bubble pre {
+    background: #06080e; border: 1px solid var(--sidebar-border); border-radius: 9px;
+    padding: 10px; margin: 8px 0 4px; overflow-x: auto; position: relative;
+  }
+  .ai-bubble code { font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px; color: #a5e9c8; }
+  .ai-bubble pre code { display: block; white-space: pre; }
+  .ai-code-bar { display: flex; gap: 6px; margin-top: 6px; }
+  .ai-code-bar button {
+    border: 1px solid var(--sidebar-border); background: rgba(255,255,255,.05); color: var(--text-dim);
+    padding: 3px 11px; border-radius: 6px; font-size: 11px; cursor: pointer; font-family: inherit;
+  }
+  .ai-code-bar button:hover { color: var(--accent); border-color: var(--accent); }
+  .ai-typing span { display: inline-block; width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: var(--accent); animation: blink 1.2s infinite; }
+  .ai-typing span:nth-child(2) { animation-delay: .2s; }
+  .ai-typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,60%,100% { opacity: .25; } 30% { opacity: 1; } }
+  .ai-input-area { border-top: 1px solid var(--sidebar-border); padding: 12px; display: flex; gap: 8px; }
+  #aiInput {
+    flex: 1; resize: none; max-height: 120px; min-height: 40px;
+    background: var(--bg-2); border: 1px solid var(--sidebar-border); border-radius: 10px;
+    color: var(--text); font-family: inherit; font-size: 13px; padding: 10px 12px; outline: none;
+  }
+  #aiInput:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  #aiSend {
+    flex: none; align-self: flex-end; width: 42px; height: 40px; border-radius: 10px; border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+    font-size: 16px; cursor: pointer; box-shadow: 0 3px 12px var(--accent-glow);
+  }
+  #aiSend:disabled { opacity: .45; cursor: not-allowed; }
+  #btnAI {
+    position: fixed; right: 18px; bottom: 18px; z-index: 60;
+    height: 44px; padding: 0 18px; border-radius: 22px; border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+    font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 8px 28px var(--accent-glow); transition: transform .15s, filter .2s;
+    display: flex; align-items: center; gap: 7px;
+  }
+  #btnAI:hover { transform: translateY(-2px); filter: brightness(1.08); }
+
+  /* ---------- 终端命令自动补全弹层 ---------- */
+  .ac-popup {
+    position: absolute; z-index: 20; min-width: 190px;
+    background: rgba(16,20,34,.97); backdrop-filter: blur(8px);
+    border: 1px solid var(--sidebar-border); border-radius: 10px;
+    box-shadow: 0 14px 40px rgba(0,0,0,.55); padding: 5px; display: none;
+  }
+  .ac-popup.show { display: block; }
+  .ac-item {
+    padding: 5px 11px; border-radius: 6px; font-size: 12.5px; cursor: pointer;
+    display: flex; justify-content: space-between; gap: 14px; color: var(--text);
+  }
+  .ac-item .ac-d { color: var(--text-dim); font-size: 10.5px; font-family: "JetBrains Mono", monospace; }
+  .ac-item.sel, .ac-item:hover { background: var(--accent); color: #fff; }
+  .ac-item.sel .ac-d, .ac-item:hover .ac-d { color: rgba(255,255,255,.85); }
+
+  /* ---------- 文件上传弹窗 ---------- */
+  .up-list { margin: 4px 0 14px; }
+  .up-row-item {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin-bottom: 7px;
+    background: var(--bg-2); border: 1px solid var(--sidebar-border); border-radius: 9px; font-size: 12.5px;
+  }
+  .up-row-item .u-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "JetBrains Mono", monospace; }
+  .up-row-item .u-pct { width: 52px; text-align: right; color: var(--text-dim); font-family: "JetBrains Mono", monospace; flex: none; }
+  .up-row-item.done .u-pct { color: var(--success); }
+  .up-row-item.fail .u-pct { color: var(--danger); }
+  .up-mini-bar { height: 4px; background: rgba(255,255,255,.08); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .up-mini-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg,var(--accent),var(--accent-2)); border-radius: 2px; }
+  .up-row-item.fail .up-mini-bar i { background: var(--danger); }
+
+  /* ---------- 状态汇总条与监控面板 ---------- */
+  .stat-bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: 2px 14px 8px; padding: 7px 11px;
+    background: var(--card); border: 1px solid var(--sidebar-border); border-radius: 10px;
+    font-size: 11.5px; color: var(--text-dim); cursor: pointer; transition: border-color .2s, background .2s;
+  }
+  .stat-bar:hover { border-color: var(--accent); background: var(--card-hover); }
+  .stat-bar .st { display: inline-flex; align-items: center; gap: 5px; }
+  .stat-bar .st b { color: var(--text); font-family: "JetBrains Mono", monospace; font-weight: 600; }
+  .stat-bar .st i { width: 7px; height: 7px; border-radius: 50%; background: #4a5170; }
+  .stat-bar .st-on i { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .stat-bar .st-off i { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+  .stat-bar .st-test i { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: blink 1s infinite; }
+  .stat-bar .st-live { margin-left: auto; font-size: 10.5px; color: var(--success); letter-spacing: .5px; }
+
+  .mon-list { max-height: 56vh; overflow-y: auto; margin: 2px 0 8px; display: flex; flex-direction: column; gap: 7px; }
+  .mon-row {
+    display: flex; align-items: center; gap: 12px; padding: 11px 14px;
+    background: var(--bg-2); border: 1px solid var(--sidebar-border); border-radius: 10px;
+  }
+  .mon-row .m-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .mon-row .m-dot.good { background: var(--success); box-shadow: 0 0 9px var(--success); }
+  .mon-row .m-dot.mid { background: var(--warn); box-shadow: 0 0 9px var(--warn); }
+  .mon-row .m-dot.bad { background: var(--danger); box-shadow: 0 0 9px var(--danger); }
+  .mon-row .m-dot.test { background: var(--accent); box-shadow: 0 0 9px var(--accent); animation: blink 1s infinite; }
+  .mon-row .m-info { flex: 1; min-width: 0; }
+  .mon-row .m-name { font-size: 13.5px; font-weight: 600; }
+  .mon-row .m-addr { font-size: 11.5px; color: var(--text-dim); font-family: "JetBrains Mono", monospace; margin-top: 3px; }
+  .mon-row .m-state { text-align: right; flex: none; }
+  .mon-row .m-state .s1 { font-size: 13px; font-weight: 600; font-family: "JetBrains Mono", monospace; }
+  .mon-row .m-state .s1.good { color: var(--success); }
+  .mon-row .m-state .s1.mid { color: var(--warn); }
+  .mon-row .m-state .s1.bad { color: var(--danger); }
+  .mon-row .m-state .s1.test { color: var(--accent); }
+  .mon-row .m-state .s2 { font-size: 10.5px; color: var(--text-dim); margin-top: 3px; }
+  .mon-empty { text-align: center; color: var(--text-dim); padding: 34px 0; font-size: 13px; }
+
+  /* ---------- 更新说明 ---------- */
+  .changelog-body {
+    background: var(--bg-2); border: 1px solid var(--sidebar-border); border-radius: 10px;
+    padding: 14px 16px; font-size: 13px; line-height: 1.9; color: #b8bfcf;
+    max-height: 52vh; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  .changelog-body h3 { font-size: 14px; color: var(--text); margin: 12px 0 4px; }
+  .changelog-body .loading { color: var(--text-dim); }
+
+  /* ---------- Toast ---------- */
+  #toast {
+    position: fixed;
+    top: 22px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-90px);
+    background: rgba(30,35,58,.92);
+    backdrop-filter: blur(10px);
+    color: var(--text);
+    padding: 11px 24px;
+    border-radius: 10px;
+    font-size: 13px;
+    z-index: 300;
+    transition: transform .32s cubic-bezier(.34,1.4,.5,1);
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    border: 1px solid var(--sidebar-border);
+    border-left: 3px solid var(--accent);
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.error { border-left-color: var(--danger); }
+</style>
+</head>
+<body>
+
+<button id="btnExpand" title="展开侧边栏">☰</button>
+
+<div id="sidebar">
+  <div class="brand">
+    <img src="/logo.jpg" alt="logo" onerror="this.style.display='none'">
+    <div>
+      <div class="title">琳东SSH管理软件</div>
+      <div class="subtitle">SECURE · FAST</div>
+    </div>
+    <button id="btnCollapse" title="收起侧边栏">‹</button>
+  </div>
+  <div class="search-box">
+    <input id="searchInput" placeholder="搜索服务器..." autocomplete="off">
+    <button id="btnPingAll" title="重新测速">⟳</button>
+  </div>
+  <div class="stat-bar" id="statBar" title="点击查看实时运行状态">
+    <span class="st st-on"><i></i>在线 <b id="statOn">0</b></span>
+    <span class="st st-off"><i></i>离线 <b id="statOff">0</b></span>
+    <span class="st st-test"><i></i>检测 <b id="statTest">0</b></span>
+    <span class="st st-all">共 <b id="statAll">0</b></span>
+    <span class="st-live">● 实时</span>
+  </div>
+  <div id="serverList"></div>
+  <div class="sidebar-footer">
+    <button id="btnAdd">+ 添加服务器</button>
+    <div class="update-row">
+      <button class="ghost-btn" id="btnSettings" title="界面设置">⚙ 设置</button>
+      <button class="ghost-btn" id="btnAbout" title="关于我们">关于</button>
+      <button class="ghost-btn" id="btnUpdate" title="检查新版本">更新</button>
+    </div>
+    <div class="ver-row"><span id="verLabel"></span></div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="tabbar"></div>
+  <div id="terminalArea">
+    <div id="welcome">
+      <img class="w-logo" src="/logo.jpg" alt="logo" onerror="this.style.display='none'">
+      <h2>琳东SSH管理软件</h2>
+      <p>从左侧选择一台服务器开始连接，或点击「添加服务器」新建</p>
+    </div>
+  </div>
+</div>
+
+<!-- 添加/编辑服务器弹窗 -->
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <h3 id="modalTitle">添加服务器</h3>
+    <div class="form-row">
+      <label>名称 *</label>
+      <input id="fName" placeholder="例如：生产服务器" autocomplete="off">
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>主机地址 *</label>
+        <input id="fHost" placeholder="IP 或域名" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <label>端口</label>
+        <input id="fPort" type="number" value="22" autocomplete="off">
+      </div>
+    </div>
+    <div class="form-row">
+      <label>用户名 *</label>
+      <input id="fUser" placeholder="root" autocomplete="off">
+    </div>
+    <div class="form-row">
+      <label>密码（密码或私钥至少填一项）</label>
+      <input id="fPass" type="password" placeholder="登录密码" autocomplete="new-password">
+    </div>
+    <div class="form-row">
+      <label>私钥（可选，PEM 格式）</label>
+      <textarea id="fKey" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="btnCancel">取消</button>
+      <button class="btn-ok" id="btnSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 更新弹窗 -->
+<div class="modal-mask" id="updateModal">
+  <div class="modal">
+    <h3>发现新版本 <span class="upd-ver" id="updVer"></span></h3>
+    <div class="upd-notes" id="updNotes"></div>
+    <div class="upd-progress-wrap" id="updProgressWrap">
+      <div class="upd-progress"><div class="upd-bar" id="updBar"></div></div>
+      <div class="upd-pct" id="updPct">0%</div>
+    </div>
+    <div class="modal-btns" id="updActions">
+      <button class="btn-cancel" id="updLater">以后再说</button>
+      <button class="btn-ok" id="updNow">立即更新</button>
+    </div>
+  </div>
+</div>
+
+<!-- 设置弹窗 -->
+<div class="modal-mask" id="settingsModal">
+  <div class="modal" style="width:420px">
+    <h3>界面设置</h3>
+    <div class="setting-row">
+      <div>
+        <div class="s-label">终端字号</div>
+        <div class="s-hint">立即生效并应用到所有终端</div>
+      </div>
+      <div class="seg" id="segFontSize">
+        <button data-size="12">小</button>
+        <button data-size="14">中</button>
+        <button data-size="16">大</button>
+        <button data-size="18">特大</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="s-label">主题强调色</div>
+        <div class="s-hint">按钮、高亮与辉光颜色</div>
+      </div>
+      <div class="theme-dots" id="themeDots">
+        <button data-accent="blue" title="星夜蓝"></button>
+        <button data-accent="purple" title="幻影紫"></button>
+        <button data-accent="cyan" title="极光青"></button>
+        <button data-accent="green" title="翡翠绿"></button>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-ok" id="settingsClose">完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- 关于我们弹窗 -->
+<div class="modal-mask" id="aboutModal">
+  <div class="modal" style="width:460px">
+    <div class="about-head">
+      <img src="/logo.jpg" alt="logo" onerror="this.style.display='none'">
+      <div>
+        <div class="about-name">琳东SSH管理软件</div>
+        <div class="about-ver" id="aboutVer"></div>
+      </div>
+    </div>
+    <div class="about-group">
+      <div class="g-label">官方网站</div>
+      <div class="about-item"><a class="a-link" data-url="https://idc.ldwl26.asia/">https://idc.ldwl26.asia/</a></div>
+      <div class="about-item"><a class="a-link" data-url="https://idc.weail.icu/">https://idc.weail.icu/</a></div>
+    </div>
+    <div class="about-group">
+      <div class="g-label">客服 QQ</div>
+      <div class="about-item">
+        <a class="a-link" data-url="https://wpa.qq.com/msgrd?v=3&uin=94771157&site=qq&menu=yes">94771157</a>
+        <button class="about-copy" data-copy="94771157">复制</button>
+      </div>
+    </div>
+    <div class="about-group">
+      <div class="g-label">客服邮箱</div>
+      <div class="about-item">
+        <a class="a-link" data-mail="ldnet2023@163.com">ldnet2023@163.com</a>
+        <button class="about-copy" data-copy="ldnet2023@163.com">复制</button>
+      </div>
+      <div class="about-item">
+        <a class="a-link" data-mail="ldnet2023@126.com">ldnet2023@126.com</a>
+        <button class="about-copy" data-copy="ldnet2023@126.com">复制</button>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="btnChangelog">更新说明</button>
+      <button class="btn-ok" id="aboutClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI 助手浮动按钮 -->
+<button id="btnAI">✦ AI 助手</button>
+
+<!-- AI 助手抽屉 -->
+<div id="aiDrawer">
+  <div class="ai-head">
+    <div class="ai-ico">✦</div>
+    <div>
+      <div class="ai-t">AI 运维助手</div>
+      <div class="ai-s" id="aiModelLabel">未配置</div>
+    </div>
+    <button id="btnAISettings" title="AI 接口设置">⚙</button>
+    <button id="btnAIClose" title="关闭">✕</button>
+  </div>
+  <div id="aiMessages">
+    <div class="ai-empty">
+      <span class="big">✦</span>
+      我是你的运维助手，可以帮你：<br>
+      排查故障、生成命令、解释输出、编写脚本<br>
+      <span style="font-size:12px">命令代码可一键插入当前终端</span>
+    </div>
+  </div>
+  <div class="ai-input-area">
+    <textarea id="aiInput" placeholder="输入问题，Enter 发送，Shift+Enter 换行" rows="1"></textarea>
+    <button id="aiSend">➤</button>
+  </div>
+</div>
+
+<!-- AI 接口设置弹窗 -->
+<div class="modal-mask" id="aiSettingsModal">
+  <div class="modal" style="width:440px">
+    <h3>AI 接口设置</h3>
+    <div class="form-row">
+      <label>服务商预设</label>
+      <div class="seg" id="aiPresets" style="flex-wrap:wrap">
+        <button data-base="https://api.openai.com/v1" data-model="gpt-4o-mini">OpenAI</button>
+        <button data-base="https://api.deepseek.com/v1" data-model="deepseek-chat">DeepSeek</button>
+        <button data-base="https://api.moonshot.cn/v1" data-model="moonshot-v1-8k">月之暗面</button>
+        <button data-base="https://dashscope.aliyuncs.com/compatible-mode/v1" data-model="qwen-plus">通义千问</button>
+        <button data-base="" data-model="">自定义</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>接口地址（Base URL，OpenAI 兼容）</label>
+      <input id="aiBase" placeholder="https://api.openai.com/v1" autocomplete="off">
+    </div>
+    <div class="form-row">
+      <label>模型名称</label>
+      <input id="aiModel" placeholder="gpt-4o-mini / deepseek-chat" autocomplete="off">
+    </div>
+    <div class="form-row">
+      <label>API Key</label>
+      <input id="aiKey" type="password" placeholder="sk-..." autocomplete="off">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="aiSetCancel">取消</button>
+      <button class="btn-ok" id="aiSetSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 文件上传弹窗 -->
+<div class="modal-mask" id="uploadModal">
+  <div class="modal" style="width:500px">
+    <h3 id="uploadTitle">上传文件到服务器</h3>
+    <div class="form-row">
+      <label>远程目录</label>
+      <input id="uploadDir" placeholder="/root 或 /home/username" autocomplete="off">
+    </div>
+    <div class="form-row">
+      <label>本地文件</label>
+      <button class="btn-cancel" id="btnPickFiles" style="padding:8px 18px;border-radius:9px;font-family:inherit;font-size:13px;cursor:pointer">选择文件…</button>
+    </div>
+    <div class="up-list" id="uploadList">
+      <div class="empty-tip" style="margin:6px 0">尚未选择文件</div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="uploadCancel">取消</button>
+      <button class="btn-ok" id="btnStartUpload">开始上传</button>
+    </div>
+  </div>
+</div>
+
+<!-- 服务器实时状态面板 -->
+<div class="modal-mask" id="monitorModal">
+  <div class="modal" style="width:560px">
+    <h3>服务器运行状态 <span id="monTick" style="font-size:12px;color:var(--text-dim);font-weight:400;font-family:'JetBrains Mono',monospace"></span></h3>
+    <div class="mon-list" id="monList"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="monRefresh">立即检测</button>
+      <button class="btn-ok" id="monClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 更新说明弹窗 -->
+<div class="modal-mask" id="changelogModal">
+  <div class="modal" style="width:520px">
+    <h3>更新说明</h3>
+    <div class="changelog-body" id="changelogBody"><span class="loading">正在加载…</span></div>
+    <div class="modal-btns">
+      <button class="btn-ok" id="changelogClose">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/xterm.js"></script>
+<script src="/xterm-addon-fit.js"></script>
+<script>
+// ---------------- 全局状态 ----------------
+let servers = [];
+let tabs = [];           // {id, serverId, title, term, fit, pane, overlay, ws, status, el}
+let activeTabId = null;
+let editingId = null;
+let tabSeq = 0;
+let latMap = {};         // 服务器ID -> 延迟毫秒 / -1 不可达 / 'testing'
+let latTime = {};        // 服务器ID -> 最近一次检测完成时间戳
+let pingQueue = 0;       // 正在检测中的数量
+
+const $ = id => document.getElementById(id);
+const serverListEl = $('serverList');
+const tabbarEl = $('tabbar');
+const terminalArea = $('terminalArea');
+const welcomeEl = $('welcome');
+
+// ---------------- Toast ----------------
+let toastTimer = null;
+function toast(msg, isErr) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isErr ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 2600);
+}
+
+// Wails 原生绑定
+const App = () => window.go.main.App;
+
+// ---------------- 界面设置（localStorage 持久化） ----------------
+const SETTINGS_KEY = 'ld-settings-v1';
+const ACCENT_HEX = { blue: '#4f7cff', purple: '#8b5cf6', cyan: '#06b6d4', green: '#10b981' };
+const TERM_FONT = '"JetBrains Mono", Consolas, "Courier New", monospace';
+let settings = { fontSize: 14, accent: 'blue', collapsed: false };
+try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (e) {}
+function saveSettings() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+function termTheme() {
+  const c = ACCENT_HEX[settings.accent] || ACCENT_HEX.blue;
+  return { background: '#080a10', foreground: '#d5d8e8', cursor: c, selectionBackground: c + '59' };
+}
+function applySettings(refit) {
+  document.body.dataset.accent = settings.accent;
+  document.body.classList.toggle('collapsed', !!settings.collapsed);
+  tabs.forEach(t => {
+    t.term.options.fontFamily = TERM_FONT;
+    t.term.options.fontSize = settings.fontSize;
+    t.term.options.theme = termTheme();
+    if (refit) setTimeout(() => { try { t.fit.fit(); } catch (e) {} }, 300);
+  });
+  document.querySelectorAll('#segFontSize button').forEach(b => b.classList.toggle('on', +b.dataset.size === settings.fontSize));
+  document.querySelectorAll('#themeDots button').forEach(b => b.classList.toggle('on', b.dataset.accent === settings.accent));
+}
+applySettings(false);
+
+// ---------------- 服务器列表 ----------------
+async function loadServers() {
+  try {
+    servers = await App().GetServers();
+    renderServers();
+    pingServers();
+  } catch (e) {
+    toast('加载服务器列表失败', true);
+  }
+}
+
+function renderServers() {
+  const kw = $('searchInput').value.trim().toLowerCase();
+  const list = servers.filter(s =>
+    !kw || s.name.toLowerCase().includes(kw) || s.host.toLowerCase().includes(kw)
+  );
+  if (list.length === 0) {
+    serverListEl.innerHTML = '<div class="empty-tip">' +
+      (servers.length === 0 ? '暂无服务器<br>点击下方按钮添加' : '无匹配结果') + '</div>';
+    return;
+  }
+  serverListEl.innerHTML = '';
+  list.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'server-card';
+    card.dataset.card = s.id;
+    card.innerHTML =
+      '<div class="name"><span class="dot"></span>' + esc(s.name) + '</div>' +
+      '<div class="addr"><span>' + esc(s.username) + '@' + esc(s.host) + ':' + s.port + '</span>' +
+      '<span class="lat"></span></div>' +
+      '<div class="ops">' +
+        '<button title="上传文件" data-act="up">↑</button>' +
+        '<button title="编辑" data-act="edit">✎</button>' +
+        '<button title="删除" class="del" data-act="del">✕</button>' +
+      '</div>';
+    card.addEventListener('click', e => {
+      const act = e.target.dataset && e.target.dataset.act;
+      if (act === 'up') { openUploadModal(s); return; }
+      if (act === 'edit') { openModal(s); return; }
+      if (act === 'del') { delServer(s); return; }
+      connectServer(s);
+    });
+    serverListEl.appendChild(card);
+  });
+  paintLatency();
+}
+
+// 统一的服务器状态判定：connected > testing > good/mid/bad
+function serverStatus(s) {
+  if (tabs.some(t => t.serverId === s.id && t.status === 'connected')) return 'connected';
+  const v = latMap[s.id];
+  if (v === undefined || v === 'testing') return 'testing';
+  if (v < 0) return 'bad';
+  if (v < 100) return 'good';
+  if (v < 300) return 'mid';
+  return 'bad';
+}
+
+function relTime(ts) {
+  if (!ts) return '尚未检测';
+  const d = Date.now() - ts;
+  if (d < 8000) return '刚刚';
+  if (d < 60000) return Math.floor(d / 1000) + ' 秒前';
+  if (d < 3600000) return Math.floor(d / 60000) + ' 分钟前';
+  return new Date(ts).toLocaleTimeString();
+}
+
+// 根据 latMap / 连接状态刷新卡片状态灯与延迟标签（不重建 DOM）
+function paintLatency() {
+  servers.forEach(s => {
+    const card = serverListEl.querySelector('[data-card="' + s.id + '"]');
+    if (!card) return;
+    const dot = card.querySelector('.dot');
+    const lat = card.querySelector('.lat');
+    const stt = serverStatus(s);
+    if (stt === 'connected') { dot.className = 'dot online'; lat.className = 'lat good'; lat.textContent = '已连接'; }
+    else if (stt === 'testing') { dot.className = 'dot'; lat.className = 'lat testing'; lat.textContent = '检测中'; }
+    else if (stt === 'bad' && latMap[s.id] < 0) { dot.className = 'dot bad'; lat.className = 'lat bad'; lat.textContent = '不可达'; }
+    else if (stt === 'good') { dot.className = 'dot good'; lat.className = 'lat good'; lat.textContent = latMap[s.id] + ' ms'; }
+    else if (stt === 'mid') { dot.className = 'dot mid'; lat.className = 'lat mid'; lat.textContent = latMap[s.id] + ' ms'; }
+    else { dot.className = 'dot bad'; lat.className = 'lat bad'; lat.textContent = latMap[s.id] + ' ms'; }
+    card.title = s.name + '\n' + s.username + '@' + s.host + ':' + s.port + '\n最后检测：' + relTime(latTime[s.id]);
+  });
+  paintStats();
+  if (monitorOpen) renderMonitor();
+}
+
+// 侧边栏汇总条
+function paintStats() {
+  let on = 0, off = 0, test = 0;
+  servers.forEach(s => {
+    const stt = serverStatus(s);
+    if (stt === 'connected' || stt === 'good' || stt === 'mid') on++;
+    else if (stt === 'bad') off++;
+    else test++;
+  });
+  $('statOn').textContent = on;
+  $('statOff').textContent = off;
+  $('statTest').textContent = test;
+  $('statAll').textContent = servers.length;
+  const live = document.querySelector('.st-live');
+  if (live) live.style.color = pingQueue > 0 ? 'var(--accent)' : 'var(--success)';
+}
+
+// 底层：对给定服务器列表做并发测速
+// showTesting=true 时先把各台置为「检测中」（手动/初次）；静默轮询不置位，避免闪烁
+async function pingList(list, showTesting) {
+  if (!list || list.length === 0) return;
+  const btn = $('btnPingAll');
+  if (btn) btn.classList.add('spinning');
+  if (showTesting) list.forEach(s => { latMap[s.id] = 'testing'; });
+  pingQueue += list.length;
+  paintLatency();
+  const queue = list.slice();
+  async function worker() {
+    while (queue.length) {
+      const s = queue.shift();
+      try { latMap[s.id] = await App().TcpPing(s.host, s.port); }
+      catch (e) { latMap[s.id] = -1; }
+      latTime[s.id] = Date.now();
+      pingQueue = Math.max(0, pingQueue - 1);
+      paintLatency();
+    }
+  }
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  if (btn) btn.classList.remove('spinning');
+}
+
+function pingServers() { return pingList(servers, true); }
+function quietPing() { return pingList(servers.filter(s => !tabs.some(t => t.serverId === s.id && t.status === 'connected')), false); }
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function delServer(s) {
+  if (!confirm('确定删除服务器「' + s.name + '」吗？')) return;
+  try {
+    await App().DeleteServer(s.id);
+    toast('已删除');
+    loadServers();
+  } catch (e) { toast(String(e), true); }
+}
+
+// ---------------- 弹窗 ----------------
+function openModal(s) {
+  editingId = s ? s.id : null;
+  $('modalTitle').textContent = s ? '编辑服务器' : '添加服务器';
+  $('fName').value = s ? s.name : '';
+  $('fHost').value = s ? s.host : '';
+  $('fPort').value = s ? s.port : 22;
+  $('fUser').value = s ? s.username : 'root';
+  $('fPass').value = s ? s.password : '';
+  $('fKey').value = s ? (s.privateKey || '') : '';
+  $('modalMask').classList.add('show');
+  $('fName').focus();
+}
+function closeModal() { $('modalMask').classList.remove('show'); }
+
+$('btnAdd').onclick = () => openModal(null);
+$('btnCancel').onclick = closeModal;
+$('modalMask').addEventListener('click', e => { if (e.target === $('modalMask')) closeModal(); });
+
+$('btnSave').onclick = async () => {
+  const body = {
+    name: $('fName').value.trim(),
+    host: $('fHost').value.trim(),
+    port: parseInt($('fPort').value) || 22,
+    username: $('fUser').value.trim(),
+    password: $('fPass').value,
+    privateKey: $('fKey').value.trim()
+  };
+  if (!body.name || !body.host || !body.username) {
+    toast('名称、主机、用户名不能为空', true); return;
+  }
+  if (!body.password && !body.privateKey) {
+    toast('密码或私钥至少填一项', true); return;
+  }
+  try {
+    if (editingId) await App().UpdateServer(editingId, body);
+    else await App().AddServer(body);
+    toast(editingId ? '已更新' : '已添加');
+    closeModal();
+    loadServers();
+  } catch (e) { toast(String(e), true); }
+};
+
+$('searchInput').addEventListener('input', renderServers);
+
+// ---------------- 终端命令自动补全 ----------------
+const CMD_DICT = [
+  ['ls','列出目录'],['ll','详细列表'],['cd','切换目录'],['pwd','当前路径'],['mkdir','建目录'],['rm','删除'],['cp','复制'],['mv','移动'],['touch','建文件'],['cat','查看文件'],
+  ['less','分页查看'],['tail','查看尾部'],['head','查看头部'],['vim','编辑器'],['vi','编辑器'],['nano','编辑器'],['grep','文本搜索'],['find','查找文件'],['locate','索引查找'],['chmod','改权限'],
+  ['chown','改属主'],['ln','链接'],['tar','打包'],['zip','压缩zip'],['unzip','解压zip'],['gzip','gzip压缩'],['gunzip','gzip解压'],['rsync','同步传输'],['scp','远程复制'],['sftp','安全传输'],
+  ['ssh','远程登录'],['telnet','终端连接'],['curl','HTTP请求'],['wget','下载文件'],['ping','网络连通'],['ifconfig','网卡信息'],['ip','网络配置'],['netstat','连接状态'],['ss','套接字统计'],['traceroute','路由跟踪'],
+  ['nslookup','DNS查询'],['dig','DNS解析'],['host','域名解析'],['ps','进程列表'],['top','资源监控'],['htop','交互监控'],['kill','结束进程'],['killall','按名结束'],['nohup','后台运行'],['jobs','后台任务'],
+  ['bg','后台继续'],['fg','前台切换'],['systemctl','系统服务'],['service','服务管理'],['journalctl','系统日志'],['df','磁盘空间'],['du','目录大小'],['free','内存使用'],['uname','系统信息'],['hostname','主机名'],
+  ['whoami','当前用户'],['id','用户信息'],['su','切换用户'],['sudo','提权执行'],['useradd','添加用户'],['userdel','删除用户'],['passwd','修改密码'],['groupadd','添加组'],['crontab','定时任务'],['date','系统时间'],
+  ['uptime','运行时长'],['dmesg','内核日志'],['history','命令历史'],['alias','命令别名'],['which','命令位置'],['whereis','程序位置'],['man','帮助手册'],['echo','输出文本'],['wc','统计行数'],['sort'],['排序'],
+  ['uniq','去重'],['awk','文本处理'],['sed','流编辑'],['cut','列截取'],['tr','字符转换'],['tee','双向输出'],['xargs','参数传递'],['watch','周期执行'],['screen','终端复用'],['tmux','终端复用'],
+  ['docker','容器管理'],['kubectl','K8s管理'],['git','版本控制'],['node','Node运行'],['npm','Node包管理'],['python3','Python'],['pip3','Python包'],['go','Go命令'],['make','编译构建'],['yum','CentOS包管理'],
+  ['apt','Debian包管理'],['apt-get','Debian包管理'],['dnf','Fedora包管理'],['firewall-cmd','防火墙'],['ufw','防火墙'],['reboot','重启系统'],['shutdown','关机'],['poweroff','关机'],['mount','挂载'],['umount','卸载']
+];
+
+function hideAc(tab) {
+  const ac = tab.ac;
+  ac.shown = false;
+  if (ac.popup) ac.popup.classList.remove('show');
+}
+
+function positionAc(tab) {
+  const ac = tab.ac;
+  if (!ac.popup) return;
+  const term = tab.term;
+  const screen = term.element.querySelector('.xterm-screen');
+  if (!screen) return;
+  const cw = screen.clientWidth / Math.max(term.cols, 1);
+  const ch = screen.clientHeight / Math.max(term.rows, 1);
+  const buf = term.buffer.active;
+  let x = (screen.offsetLeft || 0) + buf.cursorX * cw;
+  let y = (screen.offsetTop || 0) + (buf.cursorY + 1) * ch + 2;
+  const pw = ac.popup.offsetWidth, ph = ac.popup.offsetHeight;
+  const pw2 = tab.pane.clientWidth, ph2 = tab.pane.clientHeight;
+  if (x + pw > pw2 - 6) x = pw2 - pw - 6;
+  if (y + ph > ph2 - 6) y = (screen.offsetTop || 0) + buf.cursorY * ch - ph - 2;
+  ac.popup.style.left = Math.max(4, x) + 'px';
+  ac.popup.style.top = Math.max(4, y) + 'px';
+}
+
+function showAc(tab, items) {
+  const ac = tab.ac;
+  if (!ac.popup) {
+    ac.popup = document.createElement('div');
+    ac.popup.className = 'ac-popup';
+    tab.pane.appendChild(ac.popup);
+  }
+  ac.items = items.slice(0, 9);
+  ac.sel = 0;
+  ac.popup.innerHTML = ac.items.map((it, i) =>
+    '<div class="ac-item' + (i === 0 ? ' sel' : '') + '" data-i="' + i + '"><span>' + esc(it.name) + '</span><span class="ac-d">' + esc(it.desc || '') + '</span></div>'
+  ).join('');
+  ac.popup.querySelectorAll('.ac-item').forEach(el => {
+    el.addEventListener('mousedown', ev => {
+      ev.preventDefault();
+      applyAc(tab, ac.items[+el.dataset.i].name);
+      hideAc(tab);
+    });
+  });
+  ac.shown = true;
+  ac.popup.classList.add('show');
+  requestAnimationFrame(() => positionAc(tab));
+}
+
+function applyAc(tab, word) {
+  const ac = tab.ac;
+  const prefix = ac.prefix;
+  const old = ac.applied || prefix;
+  if (word.length < old.length || !word.startsWith(prefix)) {
+    // 退回前缀再补全
+    App().Input(tab.sessionId, '\x7f'.repeat(old.length - prefix.length)).catch(() => {});
+  }
+  const cur = word.startsWith(prefix) ? old : prefix;
+  const suffix = word.slice(cur.length);
+  if (suffix) App().Input(tab.sessionId, suffix).catch(() => {});
+  ac.buf = word;
+  ac.applied = word;
+  ac.prefix = prefix;
+}
+
+function handleAutocomplete(tab, d) {
+  const ac = tab.ac;
+  const send = x => App().Input(tab.sessionId, x).catch(() => {});
+
+  if (d === '\t') {
+    if (ac.shown) {
+      ac.sel = (ac.sel + 1) % ac.items.length;
+      ac.popup.querySelectorAll('.ac-item').forEach((el, i) => el.classList.toggle('sel', i === ac.sel));
+      applyAc(tab, ac.items[ac.sel].name);
+      positionAc(tab);
+      return;
+    }
+    const prefix = ac.buf;
+    if (!/^[a-z][a-z0-9._-]*$/i.test(prefix)) { send('\t'); return; }
+    const seen = new Set();
+    const items = [];
+    ac.hist.forEach(h => { if (h.startsWith(prefix) && !seen.has(h)) { seen.add(h); items.push({ name: h, desc: '历史' }); } });
+    CMD_DICT.forEach(c => { if (c[0].startsWith(prefix) && !seen.has(c[0])) { seen.add(c[0]); items.push({ name: c[0], desc: c[1] }); } });
+    if (items.length === 0) { send('\t'); return; }
+    ac.prefix = prefix; ac.applied = prefix;
+    if (items.length === 1) { applyAc(tab, items[0].name); return; }
+    showAc(tab, items);
+    applyAc(tab, items[0].name);
+    return;
+  }
+
+  if (ac.shown) hideAc(tab);
+
+  if (d === '\r') {
+    if (ac.buf.trim()) ac.hist.unshift(ac.buf.trim());
+    if (ac.hist.length > 200) ac.hist.length = 200;
+    ac.buf = ''; ac.applied = '';
+    send(d);
+    return;
+  }
+  if (d === '\x7f' || d === '\x08') {
+    ac.buf = ac.buf.slice(0, -1);
+    ac.applied = ac.buf;
+    send(d);
+    return;
+  }
+  if (d === '\x03' || d === '\x15' || d === '\x1a') { ac.buf = ''; ac.applied = ''; send(d); return; }
+  if (d === '\x1b') { send(d); return; }
+  // 可打印字符（含组合控制序列直接透传，如方向键）
+  if (d >= ' ' && d !== '\x7f') {
+    if (ac.buf.indexOf(' ') === -1 && /^[\x20-\x7e]*$/.test(d) && (ac.buf + d).length < 60) ac.buf += d;
+    send(d);
+    return;
+  }
+  send(d);
+}
+
+// ---------------- 标签页与终端 ----------------
+function connectServer(server) {
+  // 已有该服务器的活动标签且在线则直接切换过去
+  const exist = tabs.find(t => t.serverId === server.id && t.status === 'connected');
+  if (exist) { switchTab(exist.id); return; }
+
+  const tabId = 'tab-' + (++tabSeq);
+  const pane = document.createElement('div');
+  pane.className = 'term-pane';
+  pane.innerHTML =
+    '<div class="term-container" style="width:100%;height:100%"></div>' +
+    '<div class="term-overlay"><div class="msg">正在连接 ' + esc(server.host) + ' ...</div></div>';
+  terminalArea.appendChild(pane);
+
+  const term = new Terminal({
+    fontFamily: TERM_FONT,
+    fontSize: settings.fontSize,
+    cursorBlink: true,
+    allowProposedApi: true,
+    theme: termTheme()
+  });
+  const fit = new FitAddon.FitAddon();
+  term.loadAddon(fit);
+  term.open(pane.querySelector('.term-container'));
+
+  const tab = {
+    id: tabId, serverId: server.id, title: server.name, server,
+    term, fit, pane, overlay: pane.querySelector('.term-overlay'),
+    sessionId: null, unsubs: [], status: 'connecting', el: null,
+    ac: { buf: '', hist: [], popup: null, items: [], sel: 0, shown: false }
+  };
+  tabs.push(tab);
+
+  const tabEl = document.createElement('div');
+  tabEl.className = 'tab';
+  tabEl.innerHTML = '<span class="t-dot"></span><span class="t-title">' + esc(server.name) + '</span><button class="close">×</button>';
+  tabEl.addEventListener('click', e => {
+    if (e.target.classList.contains('close')) { closeTab(tabId); return; }
+    switchTab(tabId);
+  });
+  tab.el = tabEl;
+  tabbarEl.appendChild(tabEl);
+
+  term.onData(d => {
+    if (!(tab.sessionId && tab.status === 'connected')) return;
+    handleAutocomplete(tab, d);
+  });
+  term.onResize(({ cols, rows }) => {
+    if (tab.sessionId && tab.status === 'connected') {
+      App().Resize(tab.sessionId, cols, rows).catch(() => {});
+    }
+  });
+
+  switchTab(tabId);
+  doConnect(tab);
+}
+
+async function doConnect(tab) {
+  setTabStatus(tab, 'connecting');
+  showOverlay(tab, '正在连接 ' + tab.server.host + ' ...', false, true);
+  try { tab.fit.fit(); } catch (e) {}
+
+  try {
+    const res = await App().Connect({
+      serverId: tab.server.id,
+      host: tab.server.host, port: tab.server.port,
+      username: tab.server.username, password: tab.server.password,
+      cols: tab.term.cols, rows: tab.term.rows
+    });
+    tab.sessionId = res.sessionId;
+    const sid = res.sessionId;
+
+    // 先订阅事件再 Attach，避免丢失初始输出
+    tab.unsubs.push(window.runtime.EventsOn('ssh:out:' + sid, d => {
+      tab.term.write(d);
+    }));
+    tab.unsubs.push(window.runtime.EventsOn('ssh:exit:' + sid, () => {
+      setTabStatus(tab, 'closed');
+      showOverlay(tab, '连接已断开', true);
+      // 断开后立即重新探测该服务器真实可达性
+      pingList([tab.server], false);
+    }));
+    await App().Attach(sid);
+
+    setTabStatus(tab, 'connected');
+    hideOverlay(tab);
+    tab.term.focus();
+  } catch (e) {
+    tab.sessionId = null;
+    setTabStatus(tab, 'closed');
+    showOverlay(tab, String(e), true);
+  }
+}
+
+function showOverlay(tab, msg, isErr, noBtn) {
+  const ov = tab.overlay;
+  ov.innerHTML = '<div class="msg' + (isErr ? ' err' : '') + '">' + esc(msg) + '</div>' +
+    (noBtn ? '' : '<button>重新连接</button>');
+  if (!noBtn) {
+    ov.querySelector('button').onclick = () => doConnect(tab);
+  }
+  ov.classList.add('show');
+}
+function hideOverlay(tab) { tab.overlay.classList.remove('show'); }
+
+function setTabStatus(tab, st) {
+  tab.status = st;
+  const dot = tab.el.querySelector('.t-dot');
+  dot.className = 't-dot' + (st === 'connected' ? ' on' : (st === 'closed' ? ' off' : ''));
+  renderServers();
+}
+
+function switchTab(id) {
+  activeTabId = id;
+  welcomeEl.style.display = 'none';
+  tabs.forEach(t => {
+    const on = t.id === id;
+    t.el.classList.toggle('active', on);
+    t.pane.classList.toggle('active', on);
+    if (!on && t.ac) hideAc(t);
+  });
+  const tab = tabs.find(t => t.id === id);
+  if (tab) {
+    setTimeout(() => {
+      try { tab.fit.fit(); } catch (e) {}
+      tab.term.focus();
+    }, 30);
+  }
+}
+
+function closeTab(id) {
+  const idx = tabs.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  const tab = tabs[idx];
+  tab.unsubs.forEach(u => { try { u(); } catch (e) {} });
+  if (tab.sessionId) App().CloseSession(tab.sessionId).catch(() => {});
+  tab.term.dispose();
+  tab.pane.remove();
+  tab.el.remove();
+  tabs.splice(idx, 1);
+  renderServers();
+  if (activeTabId === id) {
+    if (tabs.length > 0) switchTab(tabs[tabs.length - 1].id);
+    else { activeTabId = null; welcomeEl.style.display = 'flex'; }
+  }
+}
+
+window.addEventListener('resize', () => {
+  const tab = tabs.find(t => t.id === activeTabId);
+  if (tab) { try { tab.fit.fit(); } catch (e) {} }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeModal();
+    document.getElementById('aboutModal').classList.remove('show');
+    document.getElementById('settingsModal').classList.remove('show');
+    document.getElementById('aiSettingsModal').classList.remove('show');
+    document.getElementById('changelogModal').classList.remove('show');
+    document.getElementById('monitorModal').classList.remove('show');
+    monitorOpen = false;
+    if (!uploading) document.getElementById('uploadModal').classList.remove('show');
+    // 强制更新时禁用 Esc 关闭更新弹窗
+    if (!(pendingUpdate && pendingUpdate.force)) updateModalEl.classList.remove('show');
+  }
+});
+
+// ---------------- 在线更新 ----------------
+const updateModalEl = document.getElementById('updateModal');
+const updVerEl = document.getElementById('updVer');
+const updNotesEl = document.getElementById('updNotes');
+const updProgressWrap = document.getElementById('updProgressWrap');
+const updBar = document.getElementById('updBar');
+const updPct = document.getElementById('updPct');
+const updActions = document.getElementById('updActions');
+let pendingUpdate = null;
+let updating = false;
+
+async function checkUpdate(manual) {
+  if (updating) return;
+  try {
+    const info = await App().CheckUpdate();
+    if (info && info.version) {
+      pendingUpdate = info;
+      updVerEl.textContent = 'v' + info.version;
+      updNotesEl.textContent = info.notes || '暂无更新说明';
+      updProgressWrap.style.display = 'none';
+      updActions.style.display = 'flex';
+      // 强制更新：隐藏「以后再说」，弹窗不可关闭
+      document.getElementById('updLater').style.display = info.force ? 'none' : '';
+      updateModalEl.classList.add('show');
+    } else if (manual) {
+      toast('当前已是最新版本');
+    }
+  } catch (e) {
+    if (manual) toast('检查更新失败：' + String(e), true);
+  }
+}
+
+document.getElementById('btnUpdate').onclick = () => checkUpdate(true);
+document.getElementById('updLater').onclick = () => updateModalEl.classList.remove('show');
+document.getElementById('updNow').onclick = async () => {
+  if (!pendingUpdate || updating) return;
+  updating = true;
+  updActions.style.display = 'none';
+  updProgressWrap.style.display = 'block';
+  updBar.style.width = '0%';
+  updPct.textContent = '0%';
+  const unsub = window.runtime.EventsOn('update:progress', pct => {
+    updBar.style.width = pct + '%';
+    updPct.textContent = pct + '%';
+  });
+  try {
+    await App().ApplyUpdate(pendingUpdate.url, pendingUpdate.size || 0, pendingUpdate.sha256 || '');
+    unsub();
+    updPct.textContent = '更新完成，正在重启...';
+    setTimeout(() => window.runtime.Quit(), 800);
+  } catch (e) {
+    unsub();
+    updating = false;
+    if (pendingUpdate && pendingUpdate.force) {
+      // 强制更新：不关弹窗，显示错误并允许重试
+      updPct.textContent = '更新失败：' + String(e) + '，请重试';
+      updBar.style.width = '0%';
+      updProgressWrap.style.display = 'none';
+      updActions.style.display = 'flex';
+    } else {
+      updateModalEl.classList.remove('show');
+      toast('更新失败：' + String(e), true);
+    }
+  }
+};
+
+// ---------------- 设置 / 折叠 / 测速 ----------------
+const settingsModalEl = document.getElementById('settingsModal');
+document.getElementById('btnSettings').onclick = () => { applySettings(false); settingsModalEl.classList.add('show'); };
+document.getElementById('settingsClose').onclick = () => settingsModalEl.classList.remove('show');
+settingsModalEl.addEventListener('click', e => { if (e.target === settingsModalEl) settingsModalEl.classList.remove('show'); });
+
+document.querySelectorAll('#segFontSize button').forEach(b => {
+  b.addEventListener('click', () => {
+    settings.fontSize = +b.dataset.size;
+    saveSettings();
+    applySettings(true);
+  });
+});
+document.querySelectorAll('#themeDots button').forEach(b => {
+  b.addEventListener('click', () => {
+    settings.accent = b.dataset.accent;
+    saveSettings();
+    applySettings(false);
+  });
+});
+
+function setSidebarCollapsed(v) {
+  settings.collapsed = v;
+  saveSettings();
+  applySettings(true);
+}
+document.getElementById('btnCollapse').onclick = () => setSidebarCollapsed(true);
+document.getElementById('btnExpand').onclick = () => setSidebarCollapsed(false);
+document.getElementById('btnPingAll').onclick = () => pingServers();
+
+// ---------------- 关于我们 ----------------
+const aboutModalEl = document.getElementById('aboutModal');
+let appVersion = '';
+
+function copyText(text) {
+  const done = () => toast('已复制：' + text);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(fallback);
+  } else { fallback(); }
+  function fallback() {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { toast('复制失败，请手动选择', true); }
+    document.body.removeChild(ta);
+  }
+}
+
+function openExternal(url) {
+  try { window.runtime.BrowserOpenURL(url); }
+  catch (e) { window.open(url, '_blank'); }
+}
+
+document.getElementById('btnAbout').onclick = () => {
+  document.getElementById('aboutVer').textContent = '版本 v' + (appVersion || '');
+  aboutModalEl.classList.add('show');
+};
+document.getElementById('aboutClose').onclick = () => aboutModalEl.classList.remove('show');
+aboutModalEl.addEventListener('click', e => { if (e.target === aboutModalEl) aboutModalEl.classList.remove('show'); });
+aboutModalEl.querySelectorAll('.a-link').forEach(a => {
+  a.addEventListener('click', () => {
+    const url = a.getAttribute('data-url');
+    const mail = a.getAttribute('data-mail');
+    if (url) openExternal(url);
+    else if (mail) openExternal('mailto:' + mail);
+  });
+});
+aboutModalEl.querySelectorAll('.about-copy').forEach(btn => {
+  btn.addEventListener('click', () => copyText(btn.getAttribute('data-copy')));
+});
+
+// ---------------- AI 助手 ----------------
+const aiDrawer = $('aiDrawer'), aiMessages = $('aiMessages'), aiInput = $('aiInput'), aiSend = $('aiSend');
+let aiHistory = [];
+let aiChatSeq = 0;
+let aiStreaming = false;
+const AI_SYS = '你是「琳东SSH管理软件」内置的 Linux 运维助手。回答要求：1) 简洁直接，优先给可直接执行的命令；' +
+  '2) 命令必须放入 ```bash 代码块；3) 危险操作（rm -rf、关机、改防火墙等）要提示风险；4) 中文回答。';
+
+function aiRenderMarkdown(text) {
+  let html = esc(text);
+  html = html.replace(/```(?:bash|shell|sh|sql|json|yaml|ini|conf|)?\n?([\s\S]*?)```/g, (m, code) => {
+    const c = code.replace(/\n$/, '');
+    return '<pre><code>' + esc(c) + '</code></pre><div class="ai-code-bar">' +
+      '<button data-act="copy">复制</button><button data-act="insert">插入终端</button></div>';
+  });
+  return html;
+}
+
+function aiScrollBottom() { aiMessages.scrollTop = aiMessages.scrollHeight; }
+
+function aiAddMessage(role, content) {
+  const empty = aiMessages.querySelector('.ai-empty');
+  if (empty) empty.remove();
+  const el = document.createElement('div');
+  el.className = 'ai-msg ' + role;
+  el.innerHTML = '<div class="av">' + (role === 'user' ? '我' : '✦') + '</div>' +
+    '<div class="ai-bubble"></div>';
+  const bubble = el.querySelector('.ai-bubble');
+  bubble.innerHTML = role === 'assistant' ? aiRenderMarkdown(content) : esc(content);
+  aiMessages.appendChild(el);
+  aiScrollBottom();
+  return bubble;
+}
+
+async function aiSendMsg() {
+  const text = aiInput.value.trim();
+  if (!text || aiStreaming) return;
+  let cfg;
+  try { cfg = await App().GetAIConfig(); } catch (e) { cfg = {}; }
+  if (!cfg.baseUrl || !cfg.apiKey || !cfg.model) { openAISettings(); return; }
+
+  aiInput.value = ''; aiInput.style.height = 'auto';
+  aiAddMessage('user', text);
+  aiHistory.push({ role: 'user', content: text });
+
+  const chatId = 'aic-' + (++aiChatSeq);
+  const typing = document.createElement('div');
+  typing.className = 'ai-msg assistant';
+  typing.innerHTML = '<div class="av">✦</div><div class="ai-bubble ai-typing"><span></span><span></span><span></span></div>';
+  aiMessages.appendChild(typing); aiScrollBottom();
+  aiStreaming = true; aiSend.disabled = true;
+
+  let answer = '';
+  const un1 = window.runtime.EventsOn('ai:delta:' + chatId, delta => {
+    answer += delta;
+    typing.querySelector('.ai-bubble').innerHTML = aiRenderMarkdown(answer);
+    aiScrollBottom();
+  });
+  const finish = ok => {
+    un1(); un2(); un3();
+    typing.remove();
+    if (ok) {
+      if (answer) {
+        aiAddMessage('assistant', answer);
+        aiHistory.push({ role: 'assistant', content: answer });
+      }
+    } else {
+      const b = aiAddMessage('assistant', answer || '（请求失败，请检查接口设置或网络）');
+      b.style.color = 'var(--danger)';
+    }
+    if (aiHistory.length > 40) aiHistory = aiHistory.slice(-40);
+    aiStreaming = false; aiSend.disabled = false; aiInput.focus();
+  };
+  const un2 = window.runtime.EventsOn('ai:done:' + chatId, () => finish(true));
+  const un3 = window.runtime.EventsOn('ai:error:' + chatId, err => { answer += '\n\n⚠ ' + err; finish(false); });
+
+  const msgs = [{ role: 'system', content: AI_SYS }].concat(aiHistory.slice(-12));
+  App().AIChat(chatId, msgs).catch(e => { answer += '\n\n⚠ ' + String(e); finish(false); });
+}
+
+// 代码块按钮（复制 / 插入终端）——事件委托
+aiMessages.addEventListener('click', e => {
+  const btn = e.target.closest('.ai-code-bar button');
+  if (!btn) return;
+  const code = btn.closest('.ai-bubble').querySelector('pre code').textContent;
+  if (btn.dataset.act === 'copy') { copyText(code); }
+  else {
+    const tab = tabs.find(t => t.id === activeTabId && t.status === 'connected');
+    if (!tab) { toast('请先连接并打开一个终端标签', true); return; }
+    App().Input(tab.sessionId, code).catch(err => toast(String(err), true));
+    aiDrawer.classList.remove('show');
+    tab.term.focus();
+    toast('命令已插入终端，确认无误后回车执行');
+  }
+});
+
+$('btnAI').onclick = () => {
+  aiDrawer.classList.add('show');
+  App().GetAIConfig().then(c => {
+    $('aiModelLabel').textContent = c.model ? (c.model + ' · 已连接就绪') : '未配置接口';
+  }).catch(() => {});
+  setTimeout(() => aiInput.focus(), 250);
+};
+$('btnAIClose').onclick = () => aiDrawer.classList.remove('show');
+aiSend.onclick = aiSendMsg;
+aiInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); aiSendMsg(); }
+});
+aiInput.addEventListener('input', () => {
+  aiInput.style.height = 'auto';
+  aiInput.style.height = Math.min(aiInput.scrollHeight, 120) + 'px';
+});
+
+// AI 设置
+const aiSettingsModal = $('aiSettingsModal');
+function openAISettings() {
+  App().GetAIConfig().then(c => {
+    $('aiBase').value = c.baseUrl || '';
+    $('aiModel').value = c.model || '';
+    $('aiKey').value = c.apiKey || '';
+  }).catch(() => {});
+  aiSettingsModal.classList.add('show');
+}
+$('btnAISettings').onclick = openAISettings;
+$('aiSetCancel').onclick = () => aiSettingsModal.classList.remove('show');
+aiSettingsModal.addEventListener('click', e => { if (e.target === aiSettingsModal) aiSettingsModal.classList.remove('show'); });
+document.querySelectorAll('#aiPresets button').forEach(b => {
+  b.onclick = () => {
+    if (b.dataset.base) { $('aiBase').value = b.dataset.base; $('aiModel').value = b.dataset.model; }
+    document.querySelectorAll('#aiPresets button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+  };
+});
+$('aiSetSave').onclick = async () => {
+  try {
+    await App().SaveAIConfig({ baseUrl: $('aiBase').value, apiKey: $('aiKey').value, model: $('aiModel').value });
+    aiSettingsModal.classList.remove('show');
+    $('aiModelLabel').textContent = $('aiModel').value + ' · 已连接就绪';
+    toast('AI 接口已保存');
+  } catch (e) { toast(String(e), true); }
+};
+
+// ---------------- 文件上传 ----------------
+const uploadModal = $('uploadModal');
+let uploadTarget = null, uploadFiles = [], uploading = false;
+
+function renderUploadList() {
+  const box = $('uploadList');
+  if (uploadFiles.length === 0) { box.innerHTML = '<div class="empty-tip" style="margin:6px 0">尚未选择文件</div>'; return; }
+  box.innerHTML = '';
+  uploadFiles.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'up-row-item';
+    row.dataset.name = f.base;
+    row.innerHTML = '<div style="flex:1;min-width:0"><div class="u-name">' + esc(f.base) + ' <span style="color:var(--text-dim)">(' +
+      (f.size > 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(f.size / 1024)) + ' KB') + ')</span></div>' +
+      '<div class="up-mini-bar"><i></i></div></div><div class="u-pct">等待</div>';
+    box.appendChild(row);
+  });
+}
+
+function openUploadModal(server) {
+  uploadTarget = server; uploadFiles = []; uploading = false;
+  $('uploadTitle').textContent = '上传文件到 ' + server.name;
+  $('uploadDir').value = server.username === 'root' ? '/root' : ('/home/' + server.username);
+  $('btnStartUpload').disabled = false;
+  renderUploadList();
+  uploadModal.classList.add('show');
+}
+$('uploadCancel').onclick = () => { if (!uploading) uploadModal.classList.remove('show'); };
+uploadModal.addEventListener('click', e => { if (e.target === uploadModal && !uploading) uploadModal.classList.remove('show'); });
+
+$('btnPickFiles').onclick = async () => {
+  try {
+    const res = await window.runtime.OpenFileDialog({
+      multiple: true,
+      title: '选择要上传的文件（可多选）'
+    });
+    if (!res) return;
+    const paths = String(res).split('\n').map(s => s.trim()).filter(Boolean);
+    uploadFiles = paths.map(p => {
+      const parts = p.split(/[\\/]/);
+      return { path: p, base: parts[parts.length - 1], size: 0 };
+    });
+    renderUploadList();
+  } catch (e) { toast(String(e), true); }
+};
+
+function setUploadRow(name, pct, state) {
+  const row = uploadModal.querySelector('.up-row-item[data-name="' + CSS.escape(name) + '"]');
+  if (!row) return;
+  row.classList.remove('done', 'fail');
+  if (state) row.classList.add(state);
+  row.querySelector('.up-mini-bar i').style.width = pct + '%';
+  row.querySelector('.u-pct').textContent = state === 'done' ? '完成' : state === 'fail' ? '失败' : pct + '%';
+}
+
+window.runtime.EventsOn('upload:progress', p => {
+  if (p.done) setUploadRow(p.name, 100, 'done');
+  else if (p.err) setUploadRow(p.name, 100, 'fail');
+  else setUploadRow(p.name, p.pct, '');
+});
+
+$('btnStartUpload').onclick = async () => {
+  if (!uploadTarget || uploadFiles.length === 0) { toast('请先选择文件', true); return; }
+  const dir = $('uploadDir').value.trim().replace(/\/+$/, '');
+  if (!dir) { toast('请填写远程目录', true); return; }
+  uploading = true; $('btnStartUpload').disabled = true;
+  let okCount = 0;
+  for (const f of uploadFiles) {
+    try {
+      await App().UploadFile({ serverId: uploadTarget.id, localPath: f.path, remotePath: dir + '/' + f.base });
+      okCount++;
+    } catch (e) {
+      const row = uploadModal.querySelector('.up-row-item[data-name="' + CSS.escape(f.base) + '"]');
+      if (row) { row.classList.add('fail'); row.querySelector('.u-pct').textContent = '失败'; }
+      toast(f.base + ' 上传失败：' + String(e), true);
+    }
+  }
+  uploading = false; $('btnStartUpload').disabled = false;
+  toast('上传完成：' + okCount + '/' + uploadFiles.length + ' 个文件成功', okCount < uploadFiles.length);
+  if (okCount === uploadFiles.length) setTimeout(() => uploadModal.classList.remove('show'), 900);
+};
+
+// ---------------- 更新说明 ----------------
+const changelogModal = $('changelogModal');
+$('btnChangelog').onclick = async () => {
+  aboutModalEl.classList.remove('show');
+  changelogModal.classList.add('show');
+  const body = $('changelogBody');
+  body.innerHTML = '<span class="loading">正在加载…</span>';
+  try {
+    const text = await App().GetChangelog();
+    body.textContent = text || '暂无更新说明';
+  } catch (e) {
+    body.innerHTML = '<span class="loading">更新说明加载失败：' + esc(String(e)) + '</span>';
+  }
+};
+$('changelogClose').onclick = () => changelogModal.classList.remove('show');
+changelogModal.addEventListener('click', e => { if (e.target === changelogModal) changelogModal.classList.remove('show'); });
+
+// ---------------- 服务器状态定时检测（每 30 秒静默刷新） ----------------
+setInterval(() => { monLastTick = Date.now(); quietPing(); }, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { monLastTick = Date.now(); quietPing(); } });
+
+// ---------------- 实时运行状态面板 ----------------
+const monitorModal = $('monitorModal');
+let monitorOpen = false;
+
+function renderMonitor() {
+  const box = $('monList');
+  if (servers.length === 0) { box.innerHTML = '<div class="mon-empty">暂无服务器</div>'; return; }
+  box.innerHTML = '';
+  servers.forEach(s => {
+    const stt = serverStatus(s);
+    const row = document.createElement('div');
+    row.className = 'mon-row';
+    let stateTxt, stateCls;
+    if (stt === 'connected') { stateTxt = '已连接'; stateCls = 'good'; }
+    else if (stt === 'testing') { stateTxt = '检测中'; stateCls = 'test'; }
+    else if (stt === 'bad' && latMap[s.id] < 0) { stateTxt = '离线'; stateCls = 'bad'; }
+    else if (stt === 'good') { stateTxt = latMap[s.id] + ' ms'; stateCls = 'good'; }
+    else if (stt === 'mid') { stateTxt = latMap[s.id] + ' ms'; stateCls = 'mid'; }
+    else { stateTxt = latMap[s.id] + ' ms 慢'; stateCls = 'bad'; }
+    row.innerHTML =
+      '<span class="m-dot ' + stateCls + '"></span>' +
+      '<div class="m-info"><div class="m-name">' + esc(s.name) + '</div>' +
+      '<div class="m-addr">' + esc(s.username) + '@' + esc(s.host) + ':' + s.port + '</div></div>' +
+      '<div class="m-state"><div class="s1 ' + stateCls + '">' + stateTxt + '</div>' +
+      '<div class="s2" data-time="' + (latTime[s.id] || 0) + '">' + relTime(latTime[s.id]) + '</div></div>';
+    row.style.cursor = 'pointer';
+    row.addEventListener('click', () => { monitorModal.classList.remove('show'); monitorOpen = false; connectServer(s); });
+    box.appendChild(row);
+  });
+}
+
+// 每秒刷新「x秒前」和面板标题中的下次倒计时
+let monLastTick = Date.now();
+setInterval(() => {
+  if (!monitorOpen) return;
+  document.querySelectorAll('#monList .s2').forEach(el => {
+    const ts = +el.dataset.time;
+    if (ts) el.textContent = relTime(ts);
+  });
+  const left = Math.max(0, 30 - Math.floor((Date.now() - monLastTick) / 1000));
+  $('monTick').textContent = '每 30 秒自动检测 · ' + left + 's 后刷新';
+}, 1000);
+
+$('statBar').addEventListener('click', () => {
+  monitorOpen = true; monLastTick = Date.now();
+  renderMonitor();
+  monitorModal.classList.add('show');
+});
+$('monClose').onclick = () => { monitorModal.classList.remove('show'); monitorOpen = false; };
+$('monRefresh').onclick = () => { monLastTick = Date.now(); pingServers(); };
+monitorModal.addEventListener('click', e => { if (e.target === monitorModal) { monitorModal.classList.remove('show'); monitorOpen = false; } });
+
+loadServers();
+
+// 显示版本号并静默检查更新
+App().GetVersion().then(v => {
+  appVersion = v;
+  const pf = { windows: 'Windows', linux: 'Linux', darwin: 'macOS' };
+  App().GetPlatform().then(p => {
+    document.getElementById('verLabel').textContent = 'v' + v + ' · ' + (pf[p] || p);
+  }).catch(() => { document.getElementById('verLabel').textContent = 'v' + v; });
+});
+setTimeout(() => checkUpdate(false), 2000);
+</script>
+</body>
+</html>

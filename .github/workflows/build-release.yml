@@ -1,0 +1,163 @@
+name: build-release
+
+# 推送 v* 标签即发布三端版本；也可在 Actions 页面手动运行（输入版本号，须与 update.go 一致）
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（不含 v，须与 update.go 的 AppVersion 一致）'
+        required: true
+        default: '1.1.0'
+
+permissions:
+  contents: write
+
+env:
+  WAILS_VERSION: v2.16.0
+  R2_ACCOUNT_ID: b0706cf2749dc0022f4ea75e684cfcd
+  R2_BUCKET: lindong-ssh
+
+jobs:
+  verify-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            V="${{ inputs.version }}"
+          else
+            V="${GITHUB_REF_NAME#v}"
+          fi
+          echo "发布版本：$V"
+          grep -q "const AppVersion = \"$V\"" update.go || {
+            echo "::error::版本号 $V 与 update.go 中的 AppVersion 不一致"; exit 1;
+          }
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+  build-linux:
+    needs: verify-version
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - name: 安装 Wails 与 GTK/WebKit 依赖
+        run: |
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          go install github.com/wailsapp/wails/v2/cmd/wails@${WAILS_VERSION}
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev libwebkit2gtk-4.1-dev build-essential pkg-config file
+      - name: 构建 AppImage 与 deb
+        run: bash scripts/build-linux.sh "${{ needs.verify-version.outputs.version }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/*
+
+  build-macos:
+    needs: verify-version
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - name: 安装 Wails
+        run: |
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          go install github.com/wailsapp/wails/v2/cmd/wails@${WAILS_VERSION}
+      - name: 构建通用 dmg 与原始二进制
+        run: bash scripts/build-darwin.sh "${{ needs.verify-version.outputs.version }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*
+
+  build-windows:
+    needs: verify-version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - name: 安装 Wails
+        shell: pwsh
+        run: |
+          echo "$(go env GOPATH)/bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
+      - name: 构建 Windows 可执行文件
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*
+
+  release:
+    needs: [verify-version, build-linux, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    env:
+      # 未在仓库 Secrets 配置时为空字符串，R2 部署步骤自动跳过
+      R2_KEY: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 汇总三端产物
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: '*'
+          merge-multiple: true
+      - name: 生成 version.json
+        env:
+          VERSION: ${{ needs.verify-version.outputs.version }}
+        run: |
+          cp release/changelog.md dist/changelog.md
+          python3 scripts/make_manifest.py
+          echo "---- dist ----"
+          ls -lh dist/
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 琳东SSH管理软件 v${{ needs.verify-version.outputs.version }}
+          body_path: release/changelog.md
+          files: |
+            dist/*
+      - name: 部署到 Cloudflare R2
+        if: ${{ env.R2_KEY != '' }}
+        env:
+          VERSION: ${{ needs.verify-version.outputs.version }}
+        run: |
+          pip install --quiet awscli
+          aws configure set aws_access_key_id "$R2_KEY"
+          aws configure set aws_secret_access_key "$R2_SECRET"
+          aws configure set default.region auto
+          EP="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          put() { # 文件 R2键 内容类型
+            echo "-> $2"
+            aws s3api put-object --bucket "$R2_BUCKET" --key "$2" \
+              --body "dist/$1" --endpoint-url "$EP" \
+              --content-type "$3" --cache-control "no-cache" --no-cli-pager
+          }
+          put version.json version.json "application/json; charset=utf-8"
+          put changelog.md changelog.md "text/markdown; charset=utf-8"
+          put lindong-ssh.exe lindong-ssh.exe "application/vnd.microsoft.portable-executable"
+          put lindong-ssh-linux-x86_64.AppImage lindong-ssh-linux-x86_64.AppImage "application/octet-stream"
+          put "lindong-ssh_${VERSION}_amd64.deb" "lindong-ssh_amd64.deb" "application/vnd.debian.binary-package"
+          put lindong-ssh-darwin-universal lindong-ssh-darwin-universal "application/octet-stream"
+          put "lindong-ssh_${VERSION}_universal.dmg" "lindong-ssh_universal.dmg" "application/x-apple-diskimage"
+          echo "R2 部署完成：https://a.ldnet.sryze.cc/version.json"
+      - name: 未配置 R2 密钥时的提示
+        if: ${{ env.R2_KEY == '' }}
+        run: |
+          echo "::warning::未配置 secrets.R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY，已跳过 R2 部署。"
+          echo "可在 GitHub 仓库 Settings -> Secrets and variables -> Actions 添加后重跑此任务。"
