@@ -148,7 +148,7 @@ jobs:
             echo "-> $2"
             aws s3api put-object --bucket "$R2_BUCKET" --key "$2" \
               --body "dist/$1" --endpoint-url "$EP" \
-              --content-type "$3" --cache-control "no-cache" --no-cli-pager
+              --content-type "$3" --cache-control "no-cache"
           }
           put version.json version.json "application/json; charset=utf-8"
           put changelog.md changelog.md "text/markdown; charset=utf-8"
