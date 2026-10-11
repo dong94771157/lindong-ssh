@@ -139,11 +139,11 @@ jobs:
         env:
           VERSION: ${{ needs.verify-version.outputs.version }}
         run: |
-          # AWS CLI（v1/v2 Python）与 R2 存在 TLS 握手兼容问题，改用 curl 原生 SigV4（C 实现，稳定）
+          # 部分 runner IPv6 出口与 Cloudflare 边缘握手失败，强制 IPv4 + TLS1.2
           EP="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET}"
           put() { # 文件 R2键 内容类型
             echo "-> $2"
-            curl -fsS -X PUT -T "dist/$1" "$EP/$2" \
+            curl -4 -fsS --tlsv1.2 -X PUT -T "dist/$1" "$EP/$2" \
               --user "${R2_KEY}:${R2_SECRET}" --aws-sigv4 "aws:amz:auto:s3" \
               -H "Content-Type: $3" -H "Cache-Control: no-cache"
           }
