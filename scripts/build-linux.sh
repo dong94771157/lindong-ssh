@@ -7,7 +7,8 @@ cd "$(dirname "$0")/.."
 mkdir -p dist build/appimage
 
 # ---------------- 编译（ASCII 二进制名，中文名仅出现在桌面项里） ----------------
-wails build -clean -platform linux/amd64 -o lindong-ssh
+# Ubuntu 24.04 只有 webkit2gtk-4.1，需 webkit2_41 构建标签
+wails build -clean -platform linux/amd64 -tags webkit2_41 -o lindong-ssh
 BIN="build/bin/lindong-ssh"
 if [ ! -f "$BIN" ]; then
   echo "build/bin 实际内容："

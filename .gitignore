@@ -1,5 +1,7 @@
-# 构建产物
-/build/
+# 构建产物（build 下的资源文件如 Info.plist/appicon.png 仍需跟踪）
+/build/bin/
+/build/appimage/
+/build/dmgroot/
 /dist/
 # 本地安装包与绿色版（由流水线发布）
 /installer/*.exe
