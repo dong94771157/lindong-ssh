@@ -21,11 +21,28 @@ PY
 # ---------------- 通用二进制（amd64 + arm64） ----------------
 wails build -clean -platform darwin/universal -o lindong-ssh
 
+# 兼容不同 Wails 版本的产物命名（lindong-ssh.app / 琳东SSH管理软件.app）
+SRC_APP=""
+for cand in "build/bin/lindong-ssh.app" "build/bin/琳东SSH管理软件.app"; do
+  if [ -d "$cand" ]; then SRC_APP="$cand"; break; fi
+done
+if [ -z "$SRC_APP" ]; then
+  echo "build/bin 实际内容："
+  ls -la build/bin || true
+  echo "ERROR: 未找到 .app 产物"
+  exit 1
+fi
+
 APP="build/bin/琳东SSH管理软件.app"
-mv build/bin/lindong-ssh.app "$APP"
+mv "$SRC_APP" "$APP"
 
 # 应用内自更新下载的是包内原始可执行文件（ASCII 名称）
-cp "$APP/Contents/MacOS/lindong-ssh" build/bin/lindong-ssh-darwin-universal
+INNER_BIN="$APP/Contents/MacOS/lindong-ssh"
+if [ ! -f "$INNER_BIN" ]; then
+  INNER_BIN=$(ls "$APP/Contents/MacOS/" | head -n1)
+  INNER_BIN="$APP/Contents/MacOS/$INNER_BIN"
+fi
+cp "$INNER_BIN" build/bin/lindong-ssh-darwin-universal
 chmod +x build/bin/lindong-ssh-darwin-universal
 
 # 临时签名（ad-hoc）：Apple Silicon 要求至少有一个签名；

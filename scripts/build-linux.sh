@@ -9,6 +9,12 @@ mkdir -p dist build/appimage
 # ---------------- 编译（ASCII 二进制名，中文名仅出现在桌面项里） ----------------
 wails build -clean -platform linux/amd64 -o lindong-ssh
 BIN="build/bin/lindong-ssh"
+if [ ! -f "$BIN" ]; then
+  echo "build/bin 实际内容："
+  ls -la build/bin || true
+  echo "ERROR: 未找到 $BIN"
+  exit 1
+fi
 file "$BIN"
 
 # ---------------- 组装 AppDir ----------------
