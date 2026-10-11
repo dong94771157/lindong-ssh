@@ -34,7 +34,9 @@ if [ -z "$SRC_APP" ]; then
 fi
 
 APP="build/bin/琳东SSH管理软件.app"
-mv "$SRC_APP" "$APP"
+if [ "$SRC_APP" != "$APP" ]; then
+  mv "$SRC_APP" "$APP"
+fi
 
 # 应用内自更新下载的是包内原始可执行文件（ASCII 名称）
 INNER_BIN="$APP/Contents/MacOS/lindong-ssh"
