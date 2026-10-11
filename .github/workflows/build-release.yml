@@ -139,17 +139,13 @@ jobs:
         env:
           VERSION: ${{ needs.verify-version.outputs.version }}
         run: |
-          # ubuntu runner 预装 AWS CLI v2，直接使用（pip 的 v1 与 R2 存在 TLS 兼容问题）
-          aws --version
-          aws configure set aws_access_key_id "$R2_KEY"
-          aws configure set aws_secret_access_key "$R2_SECRET"
-          aws configure set default.region auto
-          EP="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          # AWS CLI（v1/v2 Python）与 R2 存在 TLS 握手兼容问题，改用 curl 原生 SigV4（C 实现，稳定）
+          EP="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET}"
           put() { # 文件 R2键 内容类型
             echo "-> $2"
-            aws s3api put-object --bucket "$R2_BUCKET" --key "$2" \
-              --body "dist/$1" --endpoint-url "$EP" \
-              --content-type "$3" --cache-control "no-cache"
+            curl -fsS -X PUT -T "dist/$1" "$EP/$2" \
+              --user "${R2_KEY}:${R2_SECRET}" --aws-sigv4 "aws:amz:auto:s3" \
+              -H "Content-Type: $3" -H "Cache-Control: no-cache"
           }
           put version.json version.json "application/json; charset=utf-8"
           put changelog.md changelog.md "text/markdown; charset=utf-8"
