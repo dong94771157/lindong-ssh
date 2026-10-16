@@ -1,6 +1,6 @@
 ﻿; 琳东SSH管理软件 安装脚本 (Inno Setup 6)
 #define MyAppName "琳东SSH管理软件"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.2.2"
 #define MyAppPublisher "琳东"
 #define MyAppExeName "琳东SSH管理软件.exe"
 
@@ -14,7 +14,7 @@ DefaultDirName={localappdata}\Programs\{#MyAppName}
 DefaultGroupName={#MyAppName}
 PrivilegesRequired=lowest
 OutputDir=installer
-OutputBaseFilename=琳东SSH管理软件_Setup_v1.1.0
+OutputBaseFilename=琳东SSH管理软件_Setup_v1.2.2
 SetupIconFile=logo.ico
 UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
