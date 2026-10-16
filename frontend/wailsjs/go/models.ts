@@ -30,6 +30,38 @@ export namespace main {
 	        this.content = source["content"];
 	    }
 	}
+	export class ConnLog {
+	    id: string;
+	    serverId: string;
+	    name: string;
+	    host: string;
+	    port: number;
+	    username: string;
+	    protocol: string;
+	    event: string;
+	    status: string;
+	    message: string;
+	    time: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConnLog(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.serverId = source["serverId"];
+	        this.name = source["name"];
+	        this.host = source["host"];
+	        this.port = source["port"];
+	        this.username = source["username"];
+	        this.protocol = source["protocol"];
+	        this.event = source["event"];
+	        this.status = source["status"];
+	        this.message = source["message"];
+	        this.time = source["time"];
+	    }
+	}
 	export class ConnectRequest {
 	    serverId: string;
 	    host: string;
@@ -87,6 +119,7 @@ export namespace main {
 	export class Server {
 	    id: string;
 	    name: string;
+	    type: string;
 	    host: string;
 	    port: number;
 	    username: string;
@@ -102,6 +135,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.name = source["name"];
+	        this.type = source["type"];
 	        this.host = source["host"];
 	        this.port = source["port"];
 	        this.username = source["username"];

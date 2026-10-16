@@ -12,15 +12,21 @@ export function Attach(arg1:string):Promise<void>;
 
 export function CheckUpdate():Promise<main.UpdateInfo>;
 
+export function ClearConnLogs():Promise<void>;
+
 export function CloseSession(arg1:string):Promise<void>;
 
 export function Connect(arg1:main.ConnectRequest):Promise<main.ConnectResult>;
+
+export function ConnectRDP(arg1:string):Promise<void>;
 
 export function DeleteServer(arg1:string):Promise<void>;
 
 export function GetAIConfig():Promise<main.AIConfig>;
 
 export function GetChangelog():Promise<string>;
+
+export function GetConnLogs():Promise<Array<main.ConnLog>>;
 
 export function GetPlatform():Promise<string>;
 

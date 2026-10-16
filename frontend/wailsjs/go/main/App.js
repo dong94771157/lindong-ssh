@@ -22,12 +22,20 @@ export function CheckUpdate() {
   return window['go']['main']['App']['CheckUpdate']();
 }
 
+export function ClearConnLogs() {
+  return window['go']['main']['App']['ClearConnLogs']();
+}
+
 export function CloseSession(arg1) {
   return window['go']['main']['App']['CloseSession'](arg1);
 }
 
 export function Connect(arg1) {
   return window['go']['main']['App']['Connect'](arg1);
+}
+
+export function ConnectRDP(arg1) {
+  return window['go']['main']['App']['ConnectRDP'](arg1);
 }
 
 export function DeleteServer(arg1) {
@@ -40,6 +48,10 @@ export function GetAIConfig() {
 
 export function GetChangelog() {
   return window['go']['main']['App']['GetChangelog']();
+}
+
+export function GetConnLogs() {
+  return window['go']['main']['App']['GetConnLogs']();
 }
 
 export function GetPlatform() {

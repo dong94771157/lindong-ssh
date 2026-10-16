@@ -104,6 +104,12 @@
     gap: 12px;
     padding: 18px 16px;
     border-bottom: 1px solid var(--sidebar-border);
+    position: relative;
+  }
+  .brand::after {
+    content: ''; position: absolute; left: 16px; right: 16px; bottom: -1px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: .45;
   }
   .brand img {
     width: 42px;
@@ -136,8 +142,8 @@
   .search-box { padding: 12px 14px 6px; position: relative; }
   .search-box input {
     width: 100%;
-    padding: 9px 34px 9px 12px;
-    background: var(--bg-2);
+    padding: 9px 34px 9px 33px;
+    background: var(--bg-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%238b90a7' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E") no-repeat 11px center / 13px 13px;
     border: 1px solid var(--sidebar-border);
     border-radius: 9px;
     color: var(--text);
@@ -183,6 +189,7 @@
   .server-card:hover {
     background: var(--card-hover); border-color: var(--sidebar-border);
     transform: translateX(2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,.32);
   }
   .server-card:hover::before { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
   .server-card .name {
@@ -221,12 +228,17 @@
   .server-card .ops {
     position: absolute;
     top: 9px; right: 9px;
-    display: none;
+    display: flex;
     gap: 4px;
+    opacity: 0;
+    transform: translateX(5px);
+    transition: opacity .16s, transform .16s;
+    pointer-events: none;
   }
-  .server-card:hover .ops { display: flex; }
+  .server-card:hover .ops { opacity: 1; transform: none; pointer-events: auto; }
   .server-card .ops button {
-    background: rgba(0,0,0,.4);
+    background: rgba(10,13,22,.78);
+    backdrop-filter: blur(8px);
     border: 1px solid var(--sidebar-border);
     color: var(--text-dim);
     width: 26px; height: 26px;
@@ -245,6 +257,12 @@
     font-size: 13px;
     margin-top: 40px;
     line-height: 1.8;
+  }
+  #serverList .empty-tip { margin-top: 64px; }
+  #serverList .empty-tip::before {
+    content: ''; display: block; width: 56px; height: 56px; margin: 0 auto 16px;
+    border-radius: 17px; border: 1px dashed rgba(255,255,255,.16);
+    background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b90a7' stroke-width='1.5' stroke-linecap='round'%3E%3Crect x='3' y='4' width='18' height='7' rx='2'/%3E%3Crect x='3' y='13' width='18' height='7' rx='2'/%3E%3Ccircle cx='7' cy='7.5' r='1' fill='%238b90a7' stroke='none'/%3E%3Ccircle cx='7' cy='16.5' r='1' fill='%238b90a7' stroke='none'/%3E%3C/svg%3E") no-repeat center / 26px 26px;
   }
 
   .sidebar-footer { padding: 12px 14px; border-top: 1px solid var(--sidebar-border); }
@@ -322,7 +340,7 @@
   .tab.active {
     background: var(--bg-2); color: var(--text);
     border-color: var(--sidebar-border);
-    box-shadow: inset 0 2px 0 var(--accent);
+    box-shadow: inset 0 2px 0 var(--accent), 0 -8px 20px -10px var(--accent-glow);
   }
   .tab .t-dot { width: 7px; height: 7px; border-radius: 50%; background: #4a5170; flex: none; }
   .tab .t-dot.on { background: var(--success); box-shadow: 0 0 6px var(--success); }
@@ -335,6 +353,17 @@
   .tab .close:hover { background: rgba(255,255,255,.14); color: #fff; }
 
   #terminalArea { flex: 1; position: relative; background: #080a10; }
+  /* 终端区网格底纹 */
+  #terminalArea::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(ellipse at center, #000 25%, transparent 78%);
+    mask-image: radial-gradient(ellipse at center, #000 25%, transparent 78%);
+  }
+  ::selection { background: var(--accent); color: #fff; }
   .term-pane { position: absolute; inset: 0; padding: 8px 0 0 10px; display: none; }
   .term-pane.active { display: block; }
   .term-pane .xterm { height: 100%; }
@@ -379,21 +408,57 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 16px;
     z-index: 2;
+    animation: fadeIn .35s ease;
   }
+  .w-logo-wrap { position: relative; margin-bottom: 26px; }
+  .w-logo-wrap::before {
+    content: ''; position: absolute; inset: -17px; border-radius: 38px;
+    background: conic-gradient(from 0deg, transparent 0 38%, var(--accent) 50%, transparent 62% 100%);
+    animation: wspin 4.5s linear infinite;
+    filter: blur(13px); opacity: .6;
+  }
+  .w-logo-wrap::after {
+    content: ''; position: absolute; inset: -8px; border-radius: 30px;
+    border: 1px solid var(--sidebar-border);
+  }
+  @keyframes wspin { to { transform: rotate(360deg); } }
   #welcome .w-logo {
-    width: 104px; height: 104px; border-radius: 26px;
-    box-shadow: 0 0 0 1px var(--sidebar-border), 0 12px 48px var(--accent-glow);
-    animation: floaty 4s ease-in-out infinite;
+    position: relative; z-index: 1; display: block;
+    width: 96px; height: 96px; border-radius: 24px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.55), 0 0 34px var(--accent-glow);
   }
-  @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
   #welcome h2 {
-    font-size: 24px; font-weight: 700; letter-spacing: .5px;
+    font-size: 25px; font-weight: 700; letter-spacing: .5px; margin-bottom: 10px;
     background: linear-gradient(90deg, #fff, #aeb9ff 60%, var(--accent-2));
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   }
-  #welcome p { color: var(--text-dim); font-size: 13px; }
+  #welcome .w-sub { color: var(--text-dim); font-size: 12.5px; letter-spacing: 2.5px; }
+  .w-actions { display: flex; gap: 12px; margin-top: 30px; }
+  .w-btn-primary {
+    padding: 10px 26px; border: none; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+    font-size: 13.5px; font-weight: 600; font-family: inherit; cursor: pointer;
+    box-shadow: 0 4px 18px var(--accent-glow);
+    transition: filter .2s, transform .15s;
+  }
+  .w-btn-primary:hover { filter: brightness(1.12); transform: translateY(-1px); }
+  .w-btn-primary:active { transform: translateY(0) scale(.98); }
+  .w-btn-ghost {
+    padding: 10px 22px; border-radius: 10px; cursor: pointer;
+    background: var(--card); border: 1px solid var(--sidebar-border); color: var(--text-dim);
+    font-size: 13.5px; font-family: inherit;
+    transition: all .2s;
+  }
+  .w-btn-ghost:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .w-feats { display: flex; gap: 10px; margin-top: 38px; flex-wrap: wrap; justify-content: center; max-width: 520px; }
+  .w-feat {
+    font-size: 11.5px; color: var(--text-dim); letter-spacing: .3px;
+    background: var(--card); border: 1px solid var(--sidebar-border);
+    padding: 5px 13px; border-radius: 20px;
+    transition: color .2s, border-color .2s;
+  }
+  .w-feat:hover { color: var(--text); border-color: var(--accent); }
 
   /* ---------- 弹窗 ---------- */
   .modal-mask {
@@ -434,6 +499,7 @@
     font-family: inherit;
     transition: border-color .2s, box-shadow .2s;
   }
+  .form-row input:hover, .form-row textarea:hover, .form-row select:hover { border-color: rgba(255,255,255,.15); }
   .form-row input:focus, .form-row textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .form-row textarea { resize: vertical; min-height: 72px; font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px; }
   .form-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
@@ -452,6 +518,7 @@
   .btn-cancel:hover { background: rgba(255,255,255,.14); }
   .btn-ok { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; box-shadow: 0 4px 14px var(--accent-glow); }
   .btn-ok:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .modal-btns button:active { transform: scale(.97); }
 
   /* ---------- 设置面板 ---------- */
   .setting-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
@@ -683,6 +750,74 @@
   }
   #toast.show { transform: translateX(-50%) translateY(0); }
   #toast.error { border-left-color: var(--danger); }
+
+  /* ---------- RDP 类型标记 ---------- */
+  .proto-badge {
+    display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 6px;
+    font-size: 10px; font-weight: 600; letter-spacing: .4px; line-height: 15px;
+    color: #fff; background: var(--accent); vertical-align: middle;
+  }
+  .proto-badge.ssh { background: #3b82f6; }
+  .proto-badge.rdp { background: var(--success); }
+
+  /* ---------- 弹窗类型下拉 ---------- */
+  .form-row select {
+    width: 100%; padding: 10px 12px; background: var(--bg-2);
+    border: 1px solid var(--sidebar-border); border-radius: 9px;
+    color: var(--text); font-size: 13px; font-family: inherit; outline: none;
+  }
+  .form-row select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  /* ---------- 连接日志独立页面 ---------- */
+  #logsView { display: none; flex-direction: column; flex: 1; min-height: 0; }
+  #main.logs-open #tabbar, #main.logs-open #terminalArea { display: none; }
+  #main.logs-open #logsView { display: flex; }
+  .logs-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--sidebar-border);
+  }
+  .logs-title { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 9px; }
+  .logs-title::before {
+    content: ''; width: 4px; height: 16px; border-radius: 2px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-2));
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+  .logs-actions { display: flex; gap: 8px; }
+  .logs-stats { display: flex; gap: 10px; flex-wrap: wrap; padding: 13px 16px 2px; }
+  .logs-stats:empty { display: none; }
+  .ls-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--card); border: 1px solid var(--sidebar-border); border-radius: 10px;
+    padding: 7px 14px; font-size: 12px; color: var(--text-dim);
+  }
+  .ls-chip b { color: var(--text); font-family: "JetBrains Mono", Consolas, monospace; font-size: 14px; font-weight: 600; }
+  .ls-chip .i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .ls-chip.all .i { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .ls-chip.ok .i { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .ls-chip.bad .i { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+  .lg-pill {
+    display: inline-block; padding: 2px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; letter-spacing: .3px; white-space: nowrap;
+  }
+  .lg-pill.conn { background: var(--accent-soft); color: var(--accent); }
+  .lg-pill.disc { background: rgba(255,255,255,.07); color: var(--text-dim); }
+  .lg-pill.ok { background: rgba(61,220,151,.13); color: var(--success); }
+  .lg-pill.bad { background: rgba(255,95,109,.13); color: var(--danger); }
+  .logs-body { flex: 1; overflow: auto; padding: 10px 16px 16px; }
+  .logs-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .logs-table th, .logs-table td {
+    text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--sidebar-border);
+    vertical-align: middle;
+  }
+  .logs-table th {
+    position: sticky; top: 0; background: var(--bg-2); color: var(--text-dim);
+    font-weight: 500; z-index: 1;
+  }
+  .logs-table tbody tr:hover { background: var(--card-hover); }
+  .lg-time, .lg-addr { color: var(--text-dim); white-space: nowrap; }
+  .lg-msg { white-space: normal; max-width: 460px; }
+  .lg-ok { color: var(--success); }
+  .lg-bad { color: var(--danger); }
 </style>
 </head>
 <body>
@@ -715,6 +850,7 @@
     <div class="update-row">
       <button class="ghost-btn" id="btnSettings" title="界面设置">⚙ 设置</button>
       <button class="ghost-btn" id="btnAbout" title="关于我们">关于</button>
+      <button class="ghost-btn" id="btnLogs" title="连接日志">📋 日志</button>
       <button class="ghost-btn" id="btnUpdate" title="检查新版本">更新</button>
     </div>
     <div class="ver-row"><span id="verLabel"></span></div>
@@ -725,10 +861,35 @@
   <div id="tabbar"></div>
   <div id="terminalArea">
     <div id="welcome">
-      <img class="w-logo" src="/logo.jpg" alt="logo" onerror="this.style.display='none'">
+      <div class="w-logo-wrap">
+        <img class="w-logo" src="/logo.jpg" alt="logo" onerror="this.style.display='none'">
+      </div>
       <h2>琳东SSH管理软件</h2>
-      <p>从左侧选择一台服务器开始连接，或点击「添加服务器」新建</p>
+      <p class="w-sub">安全 · 高效 · 多协议远程连接管理</p>
+      <div class="w-actions">
+        <button class="w-btn-primary" id="wBtnAdd">+ 添加服务器</button>
+        <button class="w-btn-ghost" id="wBtnLogs">查看连接日志</button>
+      </div>
+      <div class="w-feats">
+        <span class="w-feat">⌨ 多标签终端</span>
+        <span class="w-feat">🖥 RDP 远程桌面</span>
+        <span class="w-feat">✦ AI 运维助手</span>
+        <span class="w-feat">⇪ SFTP 文件上传</span>
+        <span class="w-feat">⏱ 实时状态监控</span>
+      </div>
     </div>
+  </div>
+  <div id="logsView">
+    <div class="logs-head">
+      <div class="logs-title">连接日志</div>
+      <div class="logs-actions">
+        <button class="ghost-btn" id="logsRefresh">刷新</button>
+        <button class="ghost-btn" id="logsClear">清空</button>
+        <button class="ghost-btn" id="logsBack">返回终端</button>
+      </div>
+    </div>
+    <div class="logs-stats" id="logsStats"></div>
+    <div class="logs-body" id="logsBody"></div>
   </div>
 </div>
 
@@ -739,6 +900,13 @@
     <div class="form-row">
       <label>名称 *</label>
       <input id="fName" placeholder="例如：生产服务器" autocomplete="off">
+    </div>
+    <div class="form-row">
+      <label>类型</label>
+      <select id="fType">
+        <option value="ssh">SSH 终端</option>
+        <option value="rdp">Windows 远程桌面 (RDP)</option>
+      </select>
     </div>
     <div class="form-grid">
       <div class="form-row">
@@ -755,10 +923,10 @@
       <input id="fUser" placeholder="root" autocomplete="off">
     </div>
     <div class="form-row">
-      <label>密码（密码或私钥至少填一项）</label>
+      <label id="fPassLabel">密码（密码或私钥至少填一项）</label>
       <input id="fPass" type="password" placeholder="登录密码" autocomplete="new-password">
     </div>
-    <div class="form-row">
+    <div class="form-row" id="fKeyRow">
       <label>私钥（可选，PEM 格式）</label>
       <textarea id="fKey" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea>
     </div>
@@ -1050,12 +1218,14 @@ function renderServers() {
     const card = document.createElement('div');
     card.className = 'server-card';
     card.dataset.card = s.id;
+    const isRdp = s.type === 'rdp';
     card.innerHTML =
-      '<div class="name"><span class="dot"></span>' + esc(s.name) + '</div>' +
-      '<div class="addr"><span>' + esc(s.username) + '@' + esc(s.host) + ':' + s.port + '</span>' +
+      '<div class="name"><span class="dot"></span>' + esc(s.name) +
+        (isRdp ? '<span class="proto-badge rdp">RDP</span>' : '') + '</div>' +
+      '<div class="addr"><span>' + (isRdp ? '' : esc(s.username) + '@') + esc(s.host) + ':' + s.port + '</span>' +
       '<span class="lat"></span></div>' +
       '<div class="ops">' +
-        '<button title="上传文件" data-act="up">↑</button>' +
+        (isRdp ? '' : '<button title="上传文件" data-act="up">↑</button>') +
         '<button title="编辑" data-act="edit">✎</button>' +
         '<button title="删除" class="del" data-act="del">✕</button>' +
       '</div>';
@@ -1064,6 +1234,7 @@ function renderServers() {
       if (act === 'up') { openUploadModal(s); return; }
       if (act === 'edit') { openModal(s); return; }
       if (act === 'del') { delServer(s); return; }
+      if (isRdp) { connectRDP(s); return; }
       connectServer(s);
     });
     serverListEl.appendChild(card);
@@ -1173,34 +1344,57 @@ async function delServer(s) {
 function openModal(s) {
   editingId = s ? s.id : null;
   $('modalTitle').textContent = s ? '编辑服务器' : '添加服务器';
+  const isRdp = !!(s && s.type === 'rdp');
+  $('fType').value = isRdp ? 'rdp' : 'ssh';
   $('fName').value = s ? s.name : '';
   $('fHost').value = s ? s.host : '';
   $('fPort').value = s ? s.port : 22;
-  $('fUser').value = s ? s.username : 'root';
+  $('fUser').value = s ? s.username : (isRdp ? 'Administrator' : 'root');
   $('fPass').value = s ? s.password : '';
   $('fKey').value = s ? (s.privateKey || '') : '';
+  applyTypeUI();
   $('modalMask').classList.add('show');
   $('fName').focus();
 }
 function closeModal() { $('modalMask').classList.remove('show'); }
+
+// 根据「类型」切换端口默认值、私钥行与密码标签
+function applyTypeUI() {
+  const isRdp = $('fType').value === 'rdp';
+  $('fKeyRow').style.display = isRdp ? 'none' : '';
+  $('fPassLabel').textContent = isRdp ? '登录密码 *' : '密码（密码或私钥至少填一项）';
+  $('fPort').placeholder = isRdp ? '3389' : '22';
+}
+$('fType').addEventListener('change', () => {
+  const isRdp = $('fType').value === 'rdp';
+  const p = $('fPort');
+  const cur = p.value.trim();
+  if (cur === '' || cur === '22' || cur === '3389') p.value = isRdp ? 3389 : 22;
+  applyTypeUI();
+});
 
 $('btnAdd').onclick = () => openModal(null);
 $('btnCancel').onclick = closeModal;
 $('modalMask').addEventListener('click', e => { if (e.target === $('modalMask')) closeModal(); });
 
 $('btnSave').onclick = async () => {
+  const type = $('fType').value === 'rdp' ? 'rdp' : 'ssh';
   const body = {
     name: $('fName').value.trim(),
+    type,
     host: $('fHost').value.trim(),
-    port: parseInt($('fPort').value) || 22,
+    port: parseInt($('fPort').value) || (type === 'rdp' ? 3389 : 22),
     username: $('fUser').value.trim(),
     password: $('fPass').value,
-    privateKey: $('fKey').value.trim()
+    privateKey: type === 'rdp' ? '' : $('fKey').value.trim()
   };
   if (!body.name || !body.host || !body.username) {
     toast('名称、主机、用户名不能为空', true); return;
   }
-  if (!body.password && !body.privateKey) {
+  if (type === 'rdp' && !body.password) {
+    toast('请填写远程桌面登录密码', true); return;
+  }
+  if (type === 'ssh' && !body.password && !body.privateKey) {
     toast('密码或私钥至少填一项', true); return;
   }
   try {
@@ -1211,6 +1405,74 @@ $('btnSave').onclick = async () => {
     loadServers();
   } catch (e) { toast(String(e), true); }
 };
+
+// ---------------- RDP 远程桌面 ----------------
+async function connectRDP(s) {
+  try {
+    await App().ConnectRDP(s.id);
+    toast('已打开远程桌面');
+  } catch (e) { toast(String(e), true); }
+}
+
+// ---------------- 连接日志页面 ----------------
+function openLogsView() {
+  document.getElementById('main').classList.add('logs-open');
+  renderConnLogs();
+}
+function closeLogsView() {
+  document.getElementById('main').classList.remove('logs-open');
+  const tab = tabs.find(t => t.id === activeTabId);
+  if (tab) setTimeout(() => { try { tab.fit.fit(); } catch (e) {} }, 30);
+}
+async function renderConnLogs() {
+  const body = $('logsBody');
+  const statsEl = $('logsStats');
+  body.innerHTML = '<div class="empty-tip">加载中…</div>';
+  statsEl.innerHTML = '';
+  let logs = [];
+  try { logs = await App().GetConnLogs(); }
+  catch (e) { body.innerHTML = '<div class="empty-tip">加载失败</div>'; return; }
+  if (!logs || logs.length === 0) {
+    body.innerHTML = '<div class="empty-tip">暂无连接记录</div>'; return;
+  }
+  const okCount = logs.filter(l => l.status === 'success').length;
+  const badCount = logs.length - okCount;
+  statsEl.innerHTML =
+    '<div class="ls-chip all"><span class="i"></span>共 <b>' + logs.length + '</b> 条记录</div>' +
+    '<div class="ls-chip ok"><span class="i"></span>成功 <b>' + okCount + '</b></div>' +
+    '<div class="ls-chip bad"><span class="i"></span>失败 <b>' + badCount + '</b></div>';
+  const rows = logs.map(l => {
+    const t = l.time ? new Date(l.time * 1000).toLocaleString() : '';
+    const proto = l.protocol === 'rdp' ? 'RDP' : 'SSH';
+    const isDisc = l.event === 'disconnect';
+    const ok = l.status === 'success';
+    return '<tr>' +
+      '<td class="lg-time">' + esc(t) + '</td>' +
+      '<td>' + esc(l.name || l.host) + '</td>' +
+      '<td class="lg-addr">' + esc(l.host) + ':' + (l.port || '') + '</td>' +
+      '<td><span class="proto-badge ' + (l.protocol === 'rdp' ? 'rdp' : 'ssh') + '">' + proto + '</span></td>' +
+      '<td><span class="lg-pill ' + (isDisc ? 'disc' : 'conn') + '">' + (isDisc ? '断开' : '连接') + '</span></td>' +
+      '<td><span class="lg-pill ' + (ok ? 'ok' : 'bad') + '">' + (ok ? '成功' : '失败') + '</span></td>' +
+      '<td class="lg-msg">' + esc(l.message || '') + '</td>' +
+      '</tr>';
+  }).join('');
+  body.innerHTML =
+    '<table class="logs-table"><thead><tr>' +
+    '<th>时间</th><th>服务器</th><th>地址</th><th>协议</th><th>事件</th><th>结果</th><th>说明</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+async function clearLogs() {
+  if (!confirm('确定清空全部连接日志吗？')) return;
+  try { await App().ClearConnLogs(); toast('已清空'); renderConnLogs(); }
+  catch (e) { toast(String(e), true); }
+}
+$('btnLogs').onclick = openLogsView;
+$('logsBack').onclick = closeLogsView;
+$('logsRefresh').onclick = renderConnLogs;
+$('logsClear').onclick = clearLogs;
+// 欢迎页快捷操作
+$('wBtnAdd').onclick = () => openModal(null);
+$('wBtnLogs').onclick = openLogsView;
 
 $('searchInput').addEventListener('input', renderServers);
 
@@ -1509,6 +1771,7 @@ document.addEventListener('keydown', e => {
     monitorOpen = false;
     if (!uploading) document.getElementById('uploadModal').classList.remove('show');
     // 强制更新时禁用 Esc 关闭更新弹窗
+    document.getElementById('main').classList.remove('logs-open');
     if (!(pendingUpdate && pendingUpdate.force)) updateModalEl.classList.remove('show');
   }
 });

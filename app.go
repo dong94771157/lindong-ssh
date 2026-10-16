@@ -22,6 +22,7 @@ import (
 type Server struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
+	Type       string `json:"type"` // "ssh"（默认）或 "rdp"（Windows 远程桌面）
 	Host       string `json:"host"`
 	Port       int    `json:"port"`
 	Username   string `json:"username"`
@@ -123,6 +124,9 @@ type SSHSession struct {
 	session *ssh.Session
 	stdin   io.WriteCloser
 
+	srv         Server    // 连接来源服务器信息（用于连接日志）
+	connectedAt time.Time // 建连成功时刻（用于计算会话时长）
+
 	mu       sync.Mutex
 	attached bool
 	closed   bool
@@ -135,6 +139,7 @@ type SSHSession struct {
 type App struct {
 	ctx      context.Context
 	store    *serverStore
+	logs     *logStore
 	mu       sync.Mutex
 	sessions map[string]*SSHSession
 }
@@ -146,6 +151,7 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.store = newServerStore(dataFile("servers.json"))
+	a.logs = newLogStore(dataFile("logs.json"))
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -166,13 +172,25 @@ func (a *App) GetServers() []Server {
 	return a.store.list()
 }
 
+// normalizeServer 统一服务器类型与端口：type 仅接受 ssh/rdp（空值视为 ssh）
+func normalizeServer(sv *Server) {
+	if sv.Type != "rdp" {
+		sv.Type = "ssh"
+	}
+	if sv.Port <= 0 {
+		if sv.Type == "rdp" {
+			sv.Port = 3389
+		} else {
+			sv.Port = 22
+		}
+	}
+}
+
 func (a *App) AddServer(sv Server) (Server, error) {
 	if sv.Name == "" || sv.Host == "" || sv.Username == "" {
 		return Server{}, errors.New("名称、主机、用户名不能为空")
 	}
-	if sv.Port <= 0 {
-		sv.Port = 22
-	}
+	normalizeServer(&sv)
 	return a.store.add(sv)
 }
 
@@ -180,9 +198,7 @@ func (a *App) UpdateServer(id string, sv Server) (Server, error) {
 	if sv.Name == "" || sv.Host == "" || sv.Username == "" {
 		return Server{}, errors.New("名称、主机、用户名不能为空")
 	}
-	if sv.Port <= 0 {
-		sv.Port = 22
-	}
+	normalizeServer(&sv)
 	return a.store.update(id, sv)
 }
 
@@ -244,8 +260,18 @@ func (a *App) Connect(req ConnectRequest) (ConnectResult, error) {
 
 	sess, err := a.newSSHSession(sv, req.Cols, req.Rows)
 	if err != nil {
+		a.addLog(ConnLog{
+			ServerID: sv.ID, Name: sv.Name, Host: sv.Host, Port: sv.Port,
+			Username: sv.Username, Protocol: "ssh", Event: "connect",
+			Status: "fail", Message: err.Error(),
+		})
 		return ConnectResult{}, err
 	}
+	a.addLog(ConnLog{
+		ServerID: sv.ID, Name: sv.Name, Host: sv.Host, Port: sv.Port,
+		Username: sv.Username, Protocol: "ssh", Event: "connect",
+		Status: "success", Message: "连接成功",
+	})
 	return ConnectResult{SessionID: sess.id, Name: sv.Name}, nil
 }
 
@@ -325,6 +351,15 @@ func (a *App) closeSession(s *SSHSession) {
 	a.mu.Lock()
 	delete(a.sessions, s.id)
 	a.mu.Unlock()
+
+	// 记录断开事件（含会话时长）
+	if !s.connectedAt.IsZero() {
+		a.addLog(ConnLog{
+			ServerID: s.srv.ID, Name: s.srv.Name, Host: s.srv.Host, Port: s.srv.Port,
+			Username: s.srv.Username, Protocol: "ssh", Event: "disconnect",
+			Status: "success", Message: "会话时长 " + time.Since(s.connectedAt).Round(time.Second).String(),
+		})
+	}
 }
 
 func (a *App) emitOutput(s *SSHSession, data string) {
@@ -391,7 +426,7 @@ func (a *App) newSSHSession(sv Server, cols, rows int) (*SSHSession, error) {
 		return nil, fmt.Errorf("启动 Shell 失败: %v", err)
 	}
 
-	s := &SSHSession{id: randomID(), name: sv.Name, client: client, session: sess, stdin: stdin}
+	s := &SSHSession{id: randomID(), name: sv.Name, client: client, session: sess, stdin: stdin, srv: sv, connectedAt: time.Now()}
 	a.mu.Lock()
 	a.sessions[s.id] = s
 	a.mu.Unlock()
