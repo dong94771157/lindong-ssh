@@ -1068,6 +1068,9 @@
       <button data-mode="chat" class="on">闲聊</button>
       <button data-mode="agent">Agent</button>
     </div>
+    <label id="multiHostWrap" style="display:none;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none">
+      <input type="checkbox" id="chkMultiHost" style="accent-color:var(--accent)"> 多主机
+    </label>
     <span id="aiModeHint">回答并生成命令</span>
   </div>
   <div id="aiMessages">
@@ -1665,6 +1668,8 @@ function handleAutocomplete(tab, d) {
 
 // ---------------- 标签页与终端 ----------------
 function connectServer(server) {
+  // 最多同时连接 16 台主机
+  if (tabs.length >= 16) { toast('最多同时连接 16 台主机，请先关闭部分标签', true); return; }
   // 已有该服务器的活动标签且在线则直接切换过去
   const exist = tabs.find(t => t.serverId === server.id && t.status === 'connected');
   if (exist) { switchTab(exist.id); return; }
@@ -2062,6 +2067,7 @@ document.querySelectorAll('#aiModeSeg button').forEach(b => {
     document.querySelectorAll('#aiModeSeg button').forEach(x => x.classList.toggle('on', x === b));
     $('aiModeHint').textContent = aiMode === 'agent' ? '直接操作当前终端连接的主机' : '回答并生成命令';
     aiInput.placeholder = aiMode === 'agent' ? '描述运维任务，Agent 将调用工具在当前主机上执行' : '输入问题，Enter 发送，Shift+Enter 换行';
+    $('multiHostWrap').style.display = aiMode === 'agent' ? 'inline-flex' : 'none';
   };
 });
 
@@ -2122,52 +2128,80 @@ function respondAsk(approved) {
 $('agentAskApprove').onclick = () => respondAsk(true);
 $('agentAskReject').onclick = () => respondAsk(false);
 
+// 单台主机上执行一次 Agent 任务，返回最终文本（Promise）
+function runAgentOnce(tab, text, hist) {
+  return new Promise(resolve => {
+    const agentId = 'agent-' + (++agentSeq);
+    agentToolEls = {};
+    let answer = '';
+    const cleanup = () => { unDelta(); unFinal(); unTool(); unAsk(); unErr(); unDone(); };
+    const finish = () => { cleanup(); resolve(answer); };
+    const addAnswer = t => {
+      if (!t) return;
+      answer += (answer ? '\n\n' : '') + t;
+      aiAddMessage('assistant', t);
+    };
+    const unDelta = window.runtime.EventsOn('agent:delta:' + agentId, addAnswer);
+    const unFinal = window.runtime.EventsOn('agent:final:' + agentId, addAnswer);
+    const unTool = window.runtime.EventsOn('agent:tool:' + agentId, ev => renderAgentTool(ev));
+    const unAsk = window.runtime.EventsOn('agent:ask:' + agentId, ev => openAgentAsk(agentId, ev));
+    const unErr = window.runtime.EventsOn('agent:error:' + agentId, err => {
+      const b = aiAddMessage('assistant', '⚠ ' + err);
+      b.style.color = 'var(--danger)';
+    });
+    const unDone = window.runtime.EventsOn('agent:done:' + agentId, finish);
+
+    App().AgentChat(agentId, tab.sessionId, hist, text, 0).catch(e => {
+      const b = aiAddMessage('assistant', '⚠ Agent 启动失败：' + String(e));
+      b.style.color = 'var(--danger)';
+      finish();
+    });
+  });
+}
+
 async function agentSendMsg() {
   const text = aiInput.value.trim();
   if (!text || agentRunning) return;
   let cfg;
   try { cfg = await App().GetAIConfig(); } catch (e) { cfg = {}; }
   if (!cfg.baseUrl || !cfg.model) { openAISettings(); return; }
-  const tab = tabs.find(t => t.id === activeTabId && t.status === 'connected');
-  if (!tab || !tab.sessionId) { toast('Agent 模式需要先连接主机并激活其终端标签', true); return; }
+
+  const multi = $('chkMultiHost').checked && aiMode === 'agent';
+  let targets;
+  if (multi) {
+    targets = tabs.filter(t => t.status === 'connected' && t.sessionId);
+    if (!targets.length) { toast('多主机模式需要至少一台已连接的主机', true); return; }
+  } else {
+    const tab = tabs.find(t => t.id === activeTabId && t.status === 'connected');
+    if (!tab || !tab.sessionId) { toast('Agent 模式需要先连接主机并激活其终端标签', true); return; }
+    targets = [tab];
+  }
 
   aiInput.value = ''; aiInput.style.height = 'auto';
   aiAddMessage('user', text);
-  const hist = agentHistory.slice(-12); // 不含本次提问，后端会拼接
+  const histBase = agentHistory.slice(-12); // 不含本次提问，后端会拼接
   agentHistory.push({ role: 'user', content: text });
-
-  const agentId = 'agent-' + (++agentSeq);
-  agentToolEls = {};
   agentRunning = true; aiSend.disabled = true;
-  let answer = '';
 
-  const cleanup = () => { unDelta(); unFinal(); unTool(); unAsk(); unErr(); unDone(); };
-  const finish = () => {
-    cleanup();
-    if (answer) agentHistory.push({ role: 'assistant', content: answer });
-    if (agentHistory.length > 40) agentHistory = agentHistory.slice(-40);
-    agentRunning = false; aiSend.disabled = false; aiInput.focus();
-  };
-  const addAnswer = t => {
-    if (!t) return;
-    answer += (answer ? '\n\n' : '') + t;
-    aiAddMessage('assistant', t);
-  };
-  const unDelta = window.runtime.EventsOn('agent:delta:' + agentId, addAnswer);
-  const unFinal = window.runtime.EventsOn('agent:final:' + agentId, addAnswer);
-  const unTool = window.runtime.EventsOn('agent:tool:' + agentId, ev => renderAgentTool(ev));
-  const unAsk = window.runtime.EventsOn('agent:ask:' + agentId, ev => openAgentAsk(agentId, ev));
-  const unErr = window.runtime.EventsOn('agent:error:' + agentId, err => {
-    const b = aiAddMessage('assistant', '⚠ ' + err);
-    b.style.color = 'var(--danger)';
-  });
-  const unDone = window.runtime.EventsOn('agent:done:' + agentId, finish);
+  const answers = [];
+  for (let i = 0; i < targets.length; i++) {
+    const tab = targets[i];
+    if (multi) {
+      if (tab.id !== activeTabId) switchTab(tab.id); // 自动切换到当前执行的主机标签
+      aiAddMessage('assistant', '🖥 **第 ' + (i + 1) + '/' + targets.length + ' 台 · ' + tab.title + '**');
+    }
+    const ans = await runAgentOnce(tab, text, histBase);
+    if (ans) answers.push(ans);
+    if (multi && i < targets.length - 1) await new Promise(r => setTimeout(r, 300));
+  }
 
-  App().AgentChat(agentId, tab.sessionId, hist, text, 0).catch(e => {
-    const b = aiAddMessage('assistant', '⚠ Agent 启动失败：' + String(e));
-    b.style.color = 'var(--danger)';
-    finish();
-  });
+  if (multi) {
+    agentHistory.push({ role: 'assistant', content: '多主机任务已在 ' + targets.length + ' 台主机上执行完成' });
+  } else if (answers.length) {
+    agentHistory.push({ role: 'assistant', content: answers.join('\n\n') });
+  }
+  if (agentHistory.length > 40) agentHistory = agentHistory.slice(-40);
+  agentRunning = false; aiSend.disabled = false; aiInput.focus();
 }
 
 // 代码块按钮（复制 / 插入终端）——事件委托
