@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/sftp"
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -240,6 +241,9 @@ func toolRunScript(c *agentCtx, args map[string]interface{}) (string, error) {
 	return c.execCommand(shell, strings.NewReader(script), timeout)
 }
 
+// pendingInteractiveRe 匹配终端正在等待人工敏感输入的提示（密码/sudo/passphrase/MOK 等）
+var pendingInteractiveRe = regexp.MustCompile(`(?im)(\[sudo\] password|password|密码|passphrase|mokey|MOK password)\s*(for[^\n:]*)?[:：]\s*$`)
+
 func toolWriteTerminal(c *agentCtx, args map[string]interface{}) (string, error) {
 	data := argStrRaw(args, "data")
 	if data == "" {
@@ -253,6 +257,19 @@ func toolWriteTerminal(c *agentCtx, args map[string]interface{}) (string, error)
 	defer s.mu.Unlock()
 	if s.closed {
 		return "", errors.New("终端会话已关闭")
+	}
+	// 交互转交：终端正在等待密码类输入时，不代为写入，转为通知用户人工完成
+	tail := s.recentOut
+	if len(tail) > 2048 {
+		tail = tail[len(tail)-2048:]
+	}
+	if loc := pendingInteractiveRe.FindStringIndex(string(tail)); loc != nil {
+		promptTail := strings.TrimSpace(string(tail[loc[0]:]))
+		wailsRuntime.EventsEmit(c.app.ctx, "agent:interactive:"+c.agentID, map[string]string{
+			"sessionId": c.sessionID,
+			"prompt":    truncateStr(promptTail, 200),
+		})
+		return "检测到终端正在等待敏感交互输入（" + truncateStr(promptTail, 80) + "）。出于安全考虑 Agent 不代为输入密码，已通过界面请求用户在交互终端中人工完成。请调用 ask_user 引导用户输入后继续。", nil
 	}
 	if _, err := s.stdin.Write([]byte(data)); err != nil {
 		return "", fmt.Errorf("写入终端失败: %v", err)

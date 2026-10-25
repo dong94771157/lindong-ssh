@@ -365,8 +365,30 @@
   }
   ::selection { background: var(--accent); color: #fff; }
   .term-pane { position: absolute; inset: 0; padding: 8px 0 0 10px; display: none; }
-  .term-pane.active { display: block; }
+  .term-pane.active { display: flex; }
   .term-pane .xterm { height: 100%; }
+
+  /* ---------- 双终端分屏（人工终端 + Agent 轨迹） ---------- */
+  .term-pane .term-container { flex: 1; min-width: 0; height: 100%; }
+  .split-trace {
+    display: none; width: 45%; min-width: 300px; flex-direction: column;
+    border-left: 1px solid var(--sidebar-border); background: #0a0d16;
+  }
+  .term-pane.split .split-trace { display: flex; }
+  .st-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; font-size: 12px; color: var(--text-dim);
+    border-bottom: 1px solid var(--sidebar-border); flex: none;
+  }
+  .st-head button { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 12px; }
+  .st-head button:hover { color: var(--text); }
+  .st-body { flex: 1; overflow-y: auto; padding: 10px; }
+  .st-body .agent-tool-card { margin-bottom: 6px; background: rgba(255,255,255,.04); border-radius: 8px; }
+  .st-msg {
+    font-size: 12px; padding: 8px 10px; border-radius: 8px; line-height: 1.6;
+    background: rgba(255,255,255,.04); margin-bottom: 6px; white-space: pre-wrap; word-break: break-word;
+  }
+  .st-msg.interactive { border: 1px solid var(--danger); color: #ffb3b3; animation: blink 1.2s 3; }
 
   .term-overlay {
     position: absolute;
@@ -1865,6 +1887,60 @@ function handleAutocomplete(tab, d) {
 }
 
 // ---------------- 标签页与终端 ----------------
+// 双终端分屏：开关指定标签的 Agent 轨迹侧栏
+function toggleSplit(tab, open) {
+  if (!tab || !tab.pane) return;
+  tab.pane.classList.toggle('split', open);
+  setTimeout(() => { try { tab.fit.fit(); } catch (e) {} }, 60);
+}
+
+// 在分屏侧栏渲染工具调用卡片（同 call id 更新同一卡片）
+function renderTraceTool(tab, ev) {
+  if (!tab || !tab.traceBody) return;
+  if (!tab.pane.classList.contains('split')) toggleSplit(tab, true); // 首个工具事件自动分屏
+  const key = ev.id || ('seq-' + ev.seq);
+  let card = tab.traceToolEls[key];
+  if (!card) {
+    let argSummary = '';
+    try {
+      const obj = JSON.parse(ev.args || '{}');
+      const keys = Object.keys(obj);
+      if (keys.length) {
+        let v = String(obj[keys[0]]);
+        if (v.length > 60) v = v.slice(0, 60) + '…';
+        argSummary = keys[0] + ': ' + v;
+      }
+    } catch (e) { argSummary = String(ev.args || '').slice(0, 60); }
+    card = document.createElement('div');
+    card.className = 'agent-tool-card';
+    card.innerHTML = '<details><summary><span class="tool-st">⏳</span><b>' + esc(ev.name || '') + '</b>' +
+      '<span class="tool-args">' + esc(argSummary) + '</span></summary>' +
+      '<pre class="tool-result">执行中…</pre></details>';
+    tab.traceToolEls[key] = card;
+    tab.traceBody.appendChild(card);
+  }
+  const st = card.querySelector('.tool-st');
+  const res = card.querySelector('.tool-result');
+  if (ev.status === 'done') st.textContent = '✓';
+  else if (ev.status === 'error') st.textContent = '✗';
+  if (ev.result) {
+    let r = String(ev.result);
+    if (r.length > 400) r = r.slice(0, 400) + '…';
+    res.textContent = r;
+  }
+  tab.traceBody.scrollTop = tab.traceBody.scrollHeight;
+}
+
+// 向分屏侧栏追加一条文本消息
+function traceMsg(tab, text, cls) {
+  if (!tab || !tab.traceBody) return;
+  const el = document.createElement('div');
+  el.className = 'st-msg' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  tab.traceBody.appendChild(el);
+  tab.traceBody.scrollTop = tab.traceBody.scrollHeight;
+}
+
 function connectServer(server) {
   // 最多同时连接 16 台主机
   if (tabs.length >= 16) { toast('最多同时连接 16 台主机，请先关闭部分标签', true); return; }
@@ -1876,7 +1952,9 @@ function connectServer(server) {
   const pane = document.createElement('div');
   pane.className = 'term-pane';
   pane.innerHTML =
-    '<div class="term-container" style="width:100%;height:100%"></div>' +
+    '<div class="term-container"></div>' +
+    '<div class="split-trace"><div class="st-head"><span>🤖 Agent 工具轨迹（人工操作请看左侧终端）</span>' +
+    '<button class="st-close" title="关闭分屏">✕</button></div><div class="st-body"></div></div>' +
     '<div class="term-overlay"><div class="msg">正在连接 ' + esc(server.host) + ' ...</div></div>';
   terminalArea.appendChild(pane);
 
@@ -1895,9 +1973,13 @@ function connectServer(server) {
     id: tabId, serverId: server.id, title: server.name, server,
     term, fit, pane, overlay: pane.querySelector('.term-overlay'),
     sessionId: null, unsubs: [], status: 'connecting', el: null,
+    traceBody: pane.querySelector('.st-body'),
+    traceToolEls: {},
     ac: { buf: '', hist: [], popup: null, items: [], sel: 0, shown: false }
   };
   tabs.push(tab);
+
+  pane.querySelector('.st-close').onclick = () => toggleSplit(tab, false);
 
   const tabEl = document.createElement('div');
   tabEl.className = 'tab';
@@ -2406,21 +2488,36 @@ function runAgentOnce(tab, text, hist) {
   return new Promise(resolve => {
     const agentId = 'agent-' + (++agentSeq);
     agentToolEls = {};
+    tab.traceToolEls = {};
     let answer = '';
-    const cleanup = () => { unDelta(); unFinal(); unTool(); unAsk(); unErr(); unDone(); };
+    const cleanup = () => { unDelta(); unFinal(); unTool(); unAsk(); unErr(); unDone(); unInter(); };
     const finish = () => { cleanup(); resolve(answer); };
     const addAnswer = t => {
       if (!t) return;
       answer += (answer ? '\n\n' : '') + t;
       aiAddMessage('assistant', t);
+      traceMsg(tab, t);
     };
     const unDelta = window.runtime.EventsOn('agent:delta:' + agentId, addAnswer);
     const unFinal = window.runtime.EventsOn('agent:final:' + agentId, addAnswer);
-    const unTool = window.runtime.EventsOn('agent:tool:' + agentId, ev => renderAgentTool(ev));
+    const unTool = window.runtime.EventsOn('agent:tool:' + agentId, ev => {
+      renderAgentTool(ev);
+      renderTraceTool(tab, ev);
+    });
     const unAsk = window.runtime.EventsOn('agent:ask:' + agentId, ev => openAgentAsk(agentId, ev));
+    const unInter = window.runtime.EventsOn('agent:interactive:' + agentId, ev => {
+      // 检测到密码/sudo 等敏感交互：自动分屏并提示人工在左侧终端完成
+      if (ev && ev.sessionId && ev.sessionId === tab.sessionId) {
+        if (!tab.pane.classList.contains('split')) toggleSplit(tab, true);
+        switchTab(tab.id);
+        traceMsg(tab, '🤚 需要人工交互：' + ((ev && ev.prompt) || '密码/敏感输入') + '\n请在左侧终端完成输入，Agent 不会代输密码。', 'interactive');
+        toast('检测到交互输入请求，请在终端中人工完成', true);
+      }
+    });
     const unErr = window.runtime.EventsOn('agent:error:' + agentId, err => {
       const b = aiAddMessage('assistant', '⚠ ' + err);
       b.style.color = 'var(--danger)';
+      traceMsg(tab, '⚠ ' + err);
     });
     const unDone = window.runtime.EventsOn('agent:done:' + agentId, finish);
 
