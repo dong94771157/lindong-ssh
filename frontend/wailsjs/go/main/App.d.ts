@@ -67,3 +67,11 @@ export function SaveQuickPrompt(arg1:main.QuickPrompt):Promise<main.QuickPrompt>
 export function DeleteQuickPrompt(arg1:string):Promise<void>;
 
 export function ParseServersFromText(arg1:string):Promise<Array<main.Server>>;
+
+export function GetSecurityConfig():Promise<main.SecurityConfig>;
+
+export function SaveSecurityConfig(arg1:main.SecurityConfig):Promise<void>;
+
+export function GetAuditLogs():Promise<Array<main.AuditEntry>>;
+
+export function ClearAuditLogs():Promise<void>;

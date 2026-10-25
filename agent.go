@@ -282,6 +282,14 @@ func (a *App) executeTool(ctx *agentCtx, handlers map[string]func(*agentCtx, map
 		args = map[string]interface{}{}
 	}
 
+	// 只读文件系统模式：拦截远程写工具
+	if fsWriteTools[name] && securityReadOnly() {
+		msg := "只读文件系统模式已开启，写操作 " + name + " 已被拦截"
+		emit("error", msg)
+		appendAudit(ctx.agentID, ctx.sessionID, name, rawArgs, "blocked", msg)
+		return msg + "。如需执行，请让用户在 AI 设置中关闭「只读文件系统」"
+	}
+
 	// 高危操作拦截：命令类工具过风险评估，危险工具强制确认
 	if target, needCheck := toolRiskTarget(name, args); needCheck {
 		high, reason := assessRisk(target)
@@ -304,6 +312,7 @@ func (a *App) executeTool(ctx *agentCtx, handlers map[string]func(*agentCtx, map
 					note += "，补充说明：" + resp.Note
 				}
 				emit("done", note)
+				appendAudit(ctx.agentID, ctx.sessionID, name, rawArgs, "denied", note)
 				return note + "，请不要重试相同操作，可改用更安全的替代方案或向用户说明"
 			}
 			emit("running", "用户已批准，继续执行")
@@ -313,6 +322,7 @@ func (a *App) executeTool(ctx *agentCtx, handlers map[string]func(*agentCtx, map
 	out, err := handler(ctx, args)
 	if err != nil {
 		emit("error", err.Error())
+		appendAudit(ctx.agentID, ctx.sessionID, name, rawArgs, "error", err.Error())
 		return "工具执行失败：" + err.Error()
 	}
 	summary := out
@@ -320,6 +330,7 @@ func (a *App) executeTool(ctx *agentCtx, handlers map[string]func(*agentCtx, map
 		summary = summary[:500] + "…"
 	}
 	emit("done", summary)
+	appendAudit(ctx.agentID, ctx.sessionID, name, rawArgs, "done", summary)
 	return out
 }
 

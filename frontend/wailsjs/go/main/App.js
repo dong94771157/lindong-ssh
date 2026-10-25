@@ -133,3 +133,19 @@ export function DeleteQuickPrompt(arg1) {
 export function ParseServersFromText(arg1) {
   return window['go']['main']['App']['ParseServersFromText'](arg1);
 }
+
+export function GetSecurityConfig() {
+  return window['go']['main']['App']['GetSecurityConfig']();
+}
+
+export function SaveSecurityConfig(arg1) {
+  return window['go']['main']['App']['SaveSecurityConfig'](arg1);
+}
+
+export function GetAuditLogs() {
+  return window['go']['main']['App']['GetAuditLogs']();
+}
+
+export function ClearAuditLogs() {
+  return window['go']['main']['App']['ClearAuditLogs']();
+}
