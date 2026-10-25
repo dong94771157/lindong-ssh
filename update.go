@@ -22,7 +22,7 @@ import (
 // ---------------- 在线更新配置 ----------------
 
 // AppVersion 当前版本号（发布新版本时修改这里、wails.json 和 setup.iss）
-const AppVersion = "1.2.2"
+const AppVersion = "1.3.0"
 
 // UpdateManifestURL 更新清单地址（Cloudflare R2 桶 lindong-ssh，自定义域名 a.ldnet.sryze.cc）
 // version.json 内容格式：
