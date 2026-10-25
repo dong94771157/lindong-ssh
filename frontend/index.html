@@ -1062,10 +1062,17 @@
     <div class="form-row">
       <label>服务商预设</label>
       <div class="seg" id="aiPresets" style="flex-wrap:wrap">
-        <button data-base="https://api.openai.com/v1" data-model="gpt-4o-mini">OpenAI</button>
         <button data-base="https://api.deepseek.com/v1" data-model="deepseek-chat">DeepSeek</button>
-        <button data-base="https://api.moonshot.cn/v1" data-model="moonshot-v1-8k">月之暗面</button>
+        <button data-base="https://api.openai.com/v1" data-model="gpt-4o-mini">OpenAI</button>
+        <button data-base="https://api.anthropic.com/v1" data-model="claude-sonnet-4-5">Claude</button>
+        <button data-base="https://generativelanguage.googleapis.com/v1beta/openai" data-model="gemini-2.5-flash">Gemini</button>
         <button data-base="https://dashscope.aliyuncs.com/compatible-mode/v1" data-model="qwen-plus">通义千问</button>
+        <button data-base="https://open.bigmodel.cn/api/paas/v4" data-model="glm-4.5-flash">智谱</button>
+        <button data-base="https://api.moonshot.cn/v1" data-model="kimi-k2-0905-preview">Kimi</button>
+        <button data-base="https://api.siliconflow.cn/v1" data-model="deepseek-ai/DeepSeek-V3">硅基流动</button>
+        <button data-base="https://openrouter.ai/api/v1" data-model="openai/gpt-4o-mini">OpenRouter</button>
+        <button data-base="http://localhost:11434/v1" data-model="llama3.1">Ollama</button>
+        <button data-base="https://api.xiaomimimo.com/v1" data-model="mimo-v2-flash">小米MiMo</button>
         <button data-base="" data-model="">自定义</button>
       </div>
     </div>
@@ -1952,7 +1959,7 @@ async function aiSendMsg() {
   if (!text || aiStreaming) return;
   let cfg;
   try { cfg = await App().GetAIConfig(); } catch (e) { cfg = {}; }
-  if (!cfg.baseUrl || !cfg.apiKey || !cfg.model) { openAISettings(); return; }
+  if (!cfg.baseUrl || !cfg.model) { openAISettings(); return; }
 
   aiInput.value = ''; aiInput.style.height = 'auto';
   aiAddMessage('user', text);
@@ -2042,6 +2049,7 @@ aiSettingsModal.addEventListener('click', e => { if (e.target === aiSettingsModa
 document.querySelectorAll('#aiPresets button').forEach(b => {
   b.onclick = () => {
     if (b.dataset.base) { $('aiBase').value = b.dataset.base; $('aiModel').value = b.dataset.model; }
+    else { $('aiBase').value = ''; $('aiModel').value = ''; $('aiBase').focus(); }
     document.querySelectorAll('#aiPresets button').forEach(x => x.classList.remove('on'));
     b.classList.add('on');
   };

@@ -55,8 +55,8 @@ func (a *App) SaveAIConfig(c AIConfig) error {
 	c.BaseURL = strings.TrimRight(strings.TrimSpace(c.BaseURL), "/")
 	c.Model = strings.TrimSpace(c.Model)
 	c.APIKey = strings.TrimSpace(c.APIKey)
-	if c.BaseURL == "" || c.Model == "" || c.APIKey == "" {
-		return errors.New("接口地址、模型名称和 API Key 均不能为空")
+	if c.BaseURL == "" || c.Model == "" {
+		return errors.New("接口地址与模型名称不能为空")
 	}
 	return (&aiConfigStore{path: a.aiConfigPath()}).save(c)
 }
@@ -89,8 +89,8 @@ func (a *App) AIChat(chatID string, messages []AIMessage) error {
 		return errors.New("缺少会话ID")
 	}
 	cfg := (&aiConfigStore{path: a.aiConfigPath()}).load()
-	if cfg.BaseURL == "" || cfg.Model == "" || cfg.APIKey == "" {
-		return errors.New("请先在 AI 设置中配置接口地址、模型与 API Key")
+	if cfg.BaseURL == "" || cfg.Model == "" {
+		return errors.New("请先在 AI 设置中配置接口地址与模型")
 	}
 	if len(messages) == 0 {
 		return errors.New("消息不能为空")
@@ -108,7 +108,9 @@ func (a *App) AIChat(chatID string, messages []AIMessage) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+	if cfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+	}
 	req.Header.Set("Accept", "text/event-stream")
 
 	client := &http.Client{Timeout: 5 * time.Minute}
