@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +29,7 @@ type Server struct {
 	Username   string `json:"username"`
 	Password   string `json:"password"`
 	PrivateKey string `json:"privateKey"`
+	Category   string `json:"category"` // 分组分类，空为未分类
 	CreatedAt  int64  `json:"createdAt"`
 }
 
@@ -187,6 +189,7 @@ func normalizeServer(sv *Server) {
 	if sv.Type != "rdp" {
 		sv.Type = "ssh"
 	}
+	sv.Category = strings.TrimSpace(sv.Category)
 	if sv.Port <= 0 {
 		if sv.Type == "rdp" {
 			sv.Port = 3389

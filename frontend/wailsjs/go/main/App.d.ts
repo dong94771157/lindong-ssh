@@ -51,3 +51,19 @@ export function TcpPing(arg1:string,arg2:number):Promise<number>;
 export function UpdateServer(arg1:string,arg2:main.Server):Promise<main.Server>;
 
 export function UploadFile(arg1:main.UploadRequest):Promise<void>;
+
+export function GetServerMetrics(arg1:string):Promise<main.ServerMetrics>;
+
+export function GetQuickCommands():Promise<Array<main.QuickCommand>>;
+
+export function SaveQuickCommand(arg1:main.QuickCommand):Promise<main.QuickCommand>;
+
+export function DeleteQuickCommand(arg1:string):Promise<void>;
+
+export function GetQuickPrompts():Promise<Array<main.QuickPrompt>>;
+
+export function SaveQuickPrompt(arg1:main.QuickPrompt):Promise<main.QuickPrompt>;
+
+export function DeleteQuickPrompt(arg1:string):Promise<void>;
+
+export function ParseServersFromText(arg1:string):Promise<Array<main.Server>>;

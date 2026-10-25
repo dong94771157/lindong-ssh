@@ -101,3 +101,35 @@ export function UpdateServer(arg1, arg2) {
 export function UploadFile(arg1) {
   return window['go']['main']['App']['UploadFile'](arg1);
 }
+
+export function GetServerMetrics(arg1) {
+  return window['go']['main']['App']['GetServerMetrics'](arg1);
+}
+
+export function GetQuickCommands() {
+  return window['go']['main']['App']['GetQuickCommands']();
+}
+
+export function SaveQuickCommand(arg1) {
+  return window['go']['main']['App']['SaveQuickCommand'](arg1);
+}
+
+export function DeleteQuickCommand(arg1) {
+  return window['go']['main']['App']['DeleteQuickCommand'](arg1);
+}
+
+export function GetQuickPrompts() {
+  return window['go']['main']['App']['GetQuickPrompts']();
+}
+
+export function SaveQuickPrompt(arg1) {
+  return window['go']['main']['App']['SaveQuickPrompt'](arg1);
+}
+
+export function DeleteQuickPrompt(arg1) {
+  return window['go']['main']['App']['DeleteQuickPrompt'](arg1);
+}
+
+export function ParseServersFromText(arg1) {
+  return window['go']['main']['App']['ParseServersFromText'](arg1);
+}
