@@ -86,6 +86,10 @@ export function SaveAIConfig(arg1) {
   return window['go']['main']['App']['SaveAIConfig'](arg1);
 }
 
+export function SummarizeHistory(arg1) {
+  return window['go']['main']['App']['SummarizeHistory'](arg1);
+}
+
 export function TcpPing(arg1, arg2) {
   return window['go']['main']['App']['TcpPing'](arg1, arg2);
 }

@@ -657,6 +657,16 @@
     padding: 10px 16px; border-bottom: 1px solid var(--sidebar-border);
   }
   #aiModeHint { font-size: 11px; color: var(--text-dim); }
+  #aiTokenBar { margin-left: auto; font-size: 11px; color: var(--text-dim); white-space: nowrap; font-family: "JetBrains Mono", monospace; }
+  #aiTokenBar.warn { color: #e8b64c; }
+  #aiTokenBar.over { color: var(--danger); }
+  .ai-rollback {
+    display: inline-block; margin-top: 6px; border: 1px solid var(--sidebar-border); background: transparent;
+    color: var(--text-dim); padding: 2px 9px; border-radius: 6px; font-size: 11px; cursor: pointer; font-family: inherit;
+    opacity: 0; transition: opacity .15s;
+  }
+  .ai-msg.user:hover .ai-rollback { opacity: 1; }
+  .ai-rollback:hover { color: var(--accent); border-color: var(--accent); }
   .agent-tool-card { font-size: 12px; padding: 8px 12px; }
   .agent-tool-card summary { cursor: pointer; display: flex; gap: 7px; align-items: center; list-style: none; }
   .agent-tool-card summary::-webkit-details-marker { display: none; }
@@ -1072,6 +1082,7 @@
       <input type="checkbox" id="chkMultiHost" style="accent-color:var(--accent)"> 多主机
     </label>
     <span id="aiModeHint">回答并生成命令</span>
+    <span id="aiTokenBar" title="当前上下文估算 token 数 / 软上限；超过后自动摘要压缩"></span>
   </div>
   <div id="aiMessages">
     <div class="ai-empty">
@@ -1999,6 +2010,70 @@ function aiRenderMarkdown(text) {
 
 function aiScrollBottom() { aiMessages.scrollTop = aiMessages.scrollHeight; }
 
+// ---------------- 上下文管理（Token 预算 / 摘要压缩 / 回滚） ----------------
+const CTX_SOFT_LIMIT = 70000; // 约 70K token 软上限
+
+// 粗略估算 token：CJK 字符按 1，其余按 1/4
+function estimateTokens(list) {
+  let n = 0;
+  for (const m of list) {
+    const s = m.content || '';
+    for (let i = 0; i < s.length; i++) n += s.charCodeAt(i) > 255 ? 1 : 0.25;
+  }
+  return Math.ceil(n);
+}
+
+function activeHistory() { return aiMode === 'agent' ? agentHistory : aiHistory; }
+
+function updateTokenBar() {
+  const bar = $('aiTokenBar');
+  const est = estimateTokens(activeHistory());
+  if (!est) { bar.textContent = ''; bar.className = ''; return; }
+  const pct = Math.round(est / CTX_SOFT_LIMIT * 100);
+  bar.textContent = '≈' + (est >= 1000 ? (est / 1000).toFixed(1) + 'K' : est) + ' / ' + (CTX_SOFT_LIMIT / 1000) + 'K (' + pct + '%)';
+  bar.className = est >= CTX_SOFT_LIMIT ? 'over' : (est >= CTX_SOFT_LIMIT * 0.7 ? 'warn' : '');
+}
+
+// 超过软上限时：保留最近 8 条，更早的调用 LLM 压缩为摘要
+async function maybeCompressHistory() {
+  const hist = activeHistory();
+  if (estimateTokens(hist) < CTX_SOFT_LIMIT || hist.length <= 10) return;
+  const recent = hist.slice(-8);
+  const old = hist.slice(0, -8);
+  const tip = aiAddMessage('assistant', '🗜 上下文超过 ' + (CTX_SOFT_LIMIT / 1000) + 'K tokens，正在自动压缩早前对话…');
+  try {
+    const summary = await App().SummarizeHistory(old);
+    const merged = [{ role: 'assistant', content: '【早前对话摘要】\n' + summary }].concat(recent);
+    hist.length = 0;
+    merged.forEach(m => hist.push(m));
+    tip.innerHTML = aiRenderMarkdown('🗜 已将 ' + old.length + ' 条早前对话压缩为摘要，最近 ' + recent.length + ' 条保持原样。');
+  } catch (e) {
+    tip.innerHTML = aiRenderMarkdown('⚠ 历史压缩失败（' + String(e) + '），将继续携带完整上下文。');
+  }
+  updateTokenBar();
+}
+
+// 回滚到某条用户消息：截断其后的历史与界面消息，文本放回输入框
+function rollbackTo(text, msgEl) {
+  const hist = activeHistory();
+  let idx = -1;
+  for (let i = hist.length - 1; i >= 0; i--) {
+    if (hist[i].role === 'user' && hist[i].content === text) { idx = i; break; }
+  }
+  if (idx >= 0) hist.length = idx;
+  let node = msgEl;
+  while (node) { const next = node.nextElementSibling; node.remove(); node = next; }
+  if (!aiMessages.querySelector('.ai-msg')) {
+    aiMessages.innerHTML = '<div class="ai-empty"><span class="big">✦</span>对话已回滚至起点</div>';
+  }
+  aiInput.value = text;
+  aiInput.style.height = 'auto';
+  aiInput.style.height = Math.min(aiInput.scrollHeight, 120) + 'px';
+  updateTokenBar();
+  aiInput.focus();
+  toast('已回滚到该条消息，可修改后重新发送');
+}
+
 function aiAddMessage(role, content) {
   const empty = aiMessages.querySelector('.ai-empty');
   if (empty) empty.remove();
@@ -2008,6 +2083,14 @@ function aiAddMessage(role, content) {
     '<div class="ai-bubble"></div>';
   const bubble = el.querySelector('.ai-bubble');
   bubble.innerHTML = role === 'assistant' ? aiRenderMarkdown(content) : esc(content);
+  if (role === 'user') {
+    const rb = document.createElement('button');
+    rb.className = 'ai-rollback';
+    rb.textContent = '↩ 回滚到此处';
+    rb.title = '删除此条之后的对话，将内容放回输入框重新编辑';
+    rb.onclick = () => rollbackTo(content, el);
+    bubble.appendChild(rb);
+  }
   aiMessages.appendChild(el);
   aiScrollBottom();
   return bubble;
@@ -2024,6 +2107,7 @@ async function aiSendMsg() {
   aiInput.value = ''; aiInput.style.height = 'auto';
   aiAddMessage('user', text);
   aiHistory.push({ role: 'user', content: text });
+  await maybeCompressHistory();
 
   const chatId = 'aic-' + (++aiChatSeq);
   const typing = document.createElement('div');
@@ -2052,6 +2136,7 @@ async function aiSendMsg() {
     }
     if (aiHistory.length > 40) aiHistory = aiHistory.slice(-40);
     aiStreaming = false; aiSend.disabled = false; aiInput.focus();
+    updateTokenBar();
   };
   const un2 = window.runtime.EventsOn('ai:done:' + chatId, () => finish(true));
   const un3 = window.runtime.EventsOn('ai:error:' + chatId, err => { answer += '\n\n⚠ ' + err; finish(false); });
@@ -2068,6 +2153,7 @@ document.querySelectorAll('#aiModeSeg button').forEach(b => {
     $('aiModeHint').textContent = aiMode === 'agent' ? '直接操作当前终端连接的主机' : '回答并生成命令';
     aiInput.placeholder = aiMode === 'agent' ? '描述运维任务，Agent 将调用工具在当前主机上执行' : '输入问题，Enter 发送，Shift+Enter 换行';
     $('multiHostWrap').style.display = aiMode === 'agent' ? 'inline-flex' : 'none';
+    updateTokenBar();
   };
 });
 
@@ -2179,8 +2265,9 @@ async function agentSendMsg() {
 
   aiInput.value = ''; aiInput.style.height = 'auto';
   aiAddMessage('user', text);
-  const histBase = agentHistory.slice(-12); // 不含本次提问，后端会拼接
   agentHistory.push({ role: 'user', content: text });
+  await maybeCompressHistory();
+  const histBase = agentHistory.slice(-13, -1); // 不含本次提问，后端会拼接
   agentRunning = true; aiSend.disabled = true;
 
   const answers = [];
@@ -2202,6 +2289,7 @@ async function agentSendMsg() {
   }
   if (agentHistory.length > 40) agentHistory = agentHistory.slice(-40);
   agentRunning = false; aiSend.disabled = false; aiInput.focus();
+  updateTokenBar();
 }
 
 // 代码块按钮（复制 / 插入终端）——事件委托
@@ -2225,6 +2313,7 @@ $('btnAI').onclick = () => {
   App().GetAIConfig().then(c => {
     $('aiModelLabel').textContent = c.model ? (c.model + ' · 已连接就绪') : '未配置接口';
   }).catch(() => {});
+  updateTokenBar();
   setTimeout(() => aiInput.focus(), 250);
 };
 $('btnAIClose').onclick = () => aiDrawer.classList.remove('show');

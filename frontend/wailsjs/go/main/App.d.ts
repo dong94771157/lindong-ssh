@@ -44,6 +44,8 @@ export function RespondAsk(arg1:string,arg2:boolean,arg3:string):Promise<void>;
 
 export function SaveAIConfig(arg1:main.AIConfig):Promise<void>;
 
+export function SummarizeHistory(arg1:Array<main.AIMessage>):Promise<string>;
+
 export function TcpPing(arg1:string,arg2:number):Promise<number>;
 
 export function UpdateServer(arg1:string,arg2:main.Server):Promise<main.Server>;
