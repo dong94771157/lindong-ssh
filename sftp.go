@@ -51,11 +51,17 @@ func (a *App) dialSSH(sv Server) (*ssh.Client, error) {
 		port = 22
 	}
 	addr := net.JoinHostPort(sv.Host, fmt.Sprintf("%d", port))
-	client, err := ssh.Dial("tcp", addr, cfg)
+	// 按「网络代理」设置走 HTTP/SOCKS5 代理或直连
+	conn, err := dialViaSSHProxy(addr, 12*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("连接失败: %v", err)
 	}
-	return client, nil
+	cc, chans, reqs, err := ssh.NewClientConn(conn, addr, cfg)
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("连接失败: %v", err)
+	}
+	return ssh.NewClient(cc, chans, reqs), nil
 }
 
 // ---------------- SFTP 文件上传 ----------------

@@ -75,3 +75,17 @@ export function SaveSecurityConfig(arg1:main.SecurityConfig):Promise<void>;
 export function GetAuditLogs():Promise<Array<main.AuditEntry>>;
 
 export function ClearAuditLogs():Promise<void>;
+
+export function GetProxyConfig():Promise<main.ProxyConfig>;
+
+export function SaveProxyConfig(arg1:main.ProxyConfig):Promise<void>;
+
+export function GetSyncConfig():Promise<main.SyncConfig>;
+
+export function SaveSyncConfig(arg1:main.SyncConfig):Promise<void>;
+
+export function GenerateSyncKeys():Promise<main.SyncConfig>;
+
+export function SyncNow():Promise<string>;
+
+export function SyncRestore():Promise<string>;

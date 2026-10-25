@@ -356,7 +356,7 @@ func (a *App) callAgentAPI(cfg AIConfig, msgs []agentMessage, tools []map[string
 		req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	}
 
-	client := &http.Client{Timeout: 3 * time.Minute}
+	client := apiHTTPClient(3 * time.Minute)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("无法连接 AI 接口：%v", err)

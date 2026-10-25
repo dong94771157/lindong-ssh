@@ -109,6 +109,14 @@ func (s *serverStore) del(id string) error {
 	return errors.New("服务器不存在")
 }
 
+// replaceAll 全量替换主机列表（云同步恢复时使用）
+func (s *serverStore) replaceAll(sv []Server) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Servers = sv
+	return s.save()
+}
+
 func randomID() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
@@ -164,6 +172,7 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.store = newServerStore(dataFile("servers.json"))
 	a.logs = newLogStore(dataFile("logs.json"))
+	go a.syncLoop() // 云同步后台循环（未开启时空转）
 }
 
 func (a *App) shutdown(ctx context.Context) {

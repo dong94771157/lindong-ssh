@@ -149,3 +149,31 @@ export function GetAuditLogs() {
 export function ClearAuditLogs() {
   return window['go']['main']['App']['ClearAuditLogs']();
 }
+
+export function GetProxyConfig() {
+  return window['go']['main']['App']['GetProxyConfig']();
+}
+
+export function SaveProxyConfig(arg1) {
+  return window['go']['main']['App']['SaveProxyConfig'](arg1);
+}
+
+export function GetSyncConfig() {
+  return window['go']['main']['App']['GetSyncConfig']();
+}
+
+export function SaveSyncConfig(arg1) {
+  return window['go']['main']['App']['SaveSyncConfig'](arg1);
+}
+
+export function GenerateSyncKeys() {
+  return window['go']['main']['App']['GenerateSyncKeys']();
+}
+
+export function SyncNow() {
+  return window['go']['main']['App']['SyncNow']();
+}
+
+export function SyncRestore() {
+  return window['go']['main']['App']['SyncRestore']();
+}

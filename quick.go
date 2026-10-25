@@ -90,6 +90,14 @@ func (s *quickStore[T]) del(getID func(T) string, id string) error {
 	return errors.New("条目不存在")
 }
 
+// replaceAll 全量替换条目（云同步恢复时使用）
+func (s *quickStore[T]) replaceAll(items []T) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Items = items
+	return s.saveLocked()
+}
+
 var (
 	quickCmdStore    = newQuickStore[QuickCommand](dataFile("commands.json"))
 	quickPromptStore = newQuickStore[QuickPrompt](dataFile("prompts.json"))
@@ -165,7 +173,7 @@ func (a *App) ParseServersFromText(text string) ([]Server, error) {
 	if cfg.APIKey != "" {
 		req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	}
-	client := &http.Client{Timeout: 2 * time.Minute}
+	client := apiHTTPClient(2 * time.Minute)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("无法连接 AI 接口：%v", err)

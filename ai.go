@@ -109,7 +109,7 @@ func (a *App) SummarizeHistory(messages []AIMessage) (string, error) {
 		req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	}
 
-	client := &http.Client{Timeout: 2 * time.Minute}
+	client := apiHTTPClient(2 * time.Minute)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("无法连接 AI 接口：%v", err)
@@ -191,7 +191,7 @@ func (a *App) AIChat(chatID string, messages []AIMessage) error {
 	}
 	req.Header.Set("Accept", "text/event-stream")
 
-	client := &http.Client{Timeout: 5 * time.Minute}
+	client := apiHTTPClient(5 * time.Minute)
 	resp, err := client.Do(req)
 	if err != nil {
 		wailsRuntime.EventsEmit(a.ctx, "ai:error:"+chatID, "无法连接 AI 接口："+err.Error())

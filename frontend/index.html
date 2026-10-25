@@ -689,6 +689,28 @@
   }
   .ai-msg.user:hover .ai-rollback { opacity: 1; }
   .ai-rollback:hover { color: var(--accent); border-color: var(--accent); }
+  /* 云同步密钥一次性显示区 */
+  .sync-key-once {
+    margin: 4px 0 14px; padding: 12px; border: 1px solid var(--danger); border-radius: 10px;
+    background: rgba(255, 77, 106, .06);
+  }
+  .sync-key-once .sko-warn { color: var(--danger); font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+  .sync-key-once .sko-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .sync-key-once .sko-row span { flex: none; width: 60px; font-size: 12px; color: var(--text-dim); }
+  .sync-key-once .sko-row code {
+    flex: 1; font-family: "JetBrains Mono", monospace; font-size: 12px; background: #06080e;
+    padding: 6px 8px; border-radius: 6px; word-break: break-all; user-select: all; color: #b8c5d8;
+  }
+  .sync-key-once .sko-copy {
+    flex: none; border: 1px solid var(--sidebar-border); background: transparent; color: var(--text-dim);
+    padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; font-family: inherit;
+  }
+  .sync-key-once .sko-copy:hover { color: var(--accent); border-color: var(--accent); }
+  .sync-key-once .sko-tip { font-size: 11px; color: var(--text-dim); margin-top: 8px; }
+  .sync-note {
+    font-size: 11px; color: var(--text-dim); line-height: 1.7; margin: 2px 0 10px;
+    border-left: 3px solid var(--sidebar-border); padding-left: 10px;
+  }
   .agent-tool-card { font-size: 12px; padding: 8px 12px; }
   .agent-tool-card summary { cursor: pointer; display: flex; gap: 7px; align-items: center; list-style: none; }
   .agent-tool-card summary::-webkit-details-marker { display: none; }
@@ -993,6 +1015,7 @@
     <button id="btnAdd">+ 添加服务器</button>
     <div class="update-row">
       <button class="ghost-btn" id="btnImport" title="AI 批量导入主机">📥 导入</button>
+      <button class="ghost-btn" id="btnSync" title="云同步与网络代理">☁ 同步</button>
       <button class="ghost-btn" id="btnSettings" title="界面设置">⚙ 设置</button>
       <button class="ghost-btn" id="btnAbout" title="关于我们">关于</button>
       <button class="ghost-btn" id="btnLogs" title="连接日志">📋 日志</button>
@@ -1339,6 +1362,60 @@
     </div>
   </div>
 </div>
+
+<!-- 云同步与网络代理弹窗 -->
+<div class="modal-mask" id="syncModal">
+  <div class="modal" style="width:520px">
+    <h3>☁ 云同步与网络代理</h3>
+    <div class="form-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <label style="margin:0;flex:1">启用云端备份与同步<span style="display:block;font-weight:400;color:var(--text-dim);font-size:11px;margin-top:2px">零知识加密：数据在本地加密后才上传，云端无法读取内容</span></label>
+      <input type="checkbox" id="syncEnabled" style="accent-color:var(--accent);width:17px;height:17px;flex:none">
+    </div>
+    <div class="form-row">
+      <label>云端服务地址（自建端点，部署教程见源码 worker/ 目录）</label>
+      <input id="syncEndpoint" placeholder="https://your-worker.example.workers.dev" autocomplete="off">
+    </div>
+    <div class="form-row">
+      <label>鉴权密钥（aiss_*，云端账号身份）</label>
+      <div style="display:flex;gap:8px">
+        <input id="syncAuthKey" placeholder="未设置" autocomplete="off" style="flex:1">
+        <button class="btn-cancel" id="btnGenKeys" style="flex:none;padding:6px 12px;font-size:12px">生成新密钥对</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>加密密钥（enc_*，仅保存在本机）</label>
+      <input id="syncEncKey" placeholder="未设置" autocomplete="off">
+    </div>
+    <div class="sync-key-once" id="syncKeyOnce" style="display:none">
+      <div class="sko-warn">⚠ 请立即复制并妥善保存以下密钥，关闭后不再完整显示</div>
+      <div class="sko-row"><span>鉴权密钥</span><code id="skoAuth"></code><button class="sko-copy" data-k="skoAuth">复制</button></div>
+      <div class="sko-row"><span>加密密钥</span><code id="skoEnc"></code><button class="sko-copy" data-k="skoEnc">复制</button></div>
+      <div class="sko-tip">enc_* 丢失将无法找回云端数据；重新生成密钥对相当于更换云端账号。</div>
+    </div>
+    <div class="form-row">
+      <label>SSH 连接代理（留空为直连）</label>
+      <input id="syncSSHProxy" placeholder="http://127.0.0.1:7890 或 socks5://127.0.0.1:1080" autocomplete="off">
+    </div>
+    <div class="form-row">
+      <label>AI 接口 / 云同步代理（留空为直连）</label>
+      <input id="syncAPIProxy" placeholder="http://127.0.0.1:7890 或 socks5://127.0.0.1:1080" autocomplete="off">
+    </div>
+    <div class="sync-note">
+      同步范围：主机列表、快捷提示词、快捷命令（不含 AI 对话记录与 API Key）。<br>
+      开启后每 30 秒自动与云端同步；连续 365 天未使用的云端账号将被自动清理。
+    </div>
+    <div class="form-row" style="margin-bottom:0">
+      <span id="syncStatus" style="font-size:12px;color:var(--text-dim)"></span>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="btnSyncRestore">从云端恢复</button>
+      <button class="btn-cancel" id="btnSyncNow">立即同步</button>
+      <button class="btn-cancel" id="syncCancel">关闭</button>
+      <button class="btn-ok" id="btnSyncSave">保存</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- 文件上传弹窗 -->
 <div class="modal-mask" id="uploadModal">
@@ -3063,6 +3140,115 @@ $('btnDoImport').onclick = async () => {
   toast('导入完成：成功 ' + ok + ' 台' + (fail ? '，失败 ' + fail + ' 台' : ''));
   loadServers();
 };
+
+// ---------------- 云同步与网络代理 ----------------
+const syncModal = $('syncModal');
+
+function updateSyncStatus(cfg) {
+  if (cfg.lastSync > 0) {
+    const d = new Date(cfg.lastSync * 1000);
+    $('syncStatus').textContent = '上次同步：' + d.toLocaleString();
+  } else {
+    $('syncStatus').textContent = '尚未同步';
+  }
+}
+
+async function openSyncModal() {
+  try {
+    const cfg = await App().GetSyncConfig();
+    const prx = await App().GetProxyConfig();
+    $('syncEnabled').checked = cfg.enabled;
+    $('syncEndpoint').value = cfg.endpoint || '';
+    $('syncAuthKey').value = cfg.authKey || '';
+    $('syncEncKey').value = cfg.encKey || '';
+    $('syncSSHProxy').value = prx.sshProxy || '';
+    $('syncAPIProxy').value = prx.apiProxy || '';
+    $('syncKeyOnce').style.display = 'none';
+    updateSyncStatus(cfg);
+    syncModal.classList.add('show');
+  } catch (e) { toast(String(e), true); }
+}
+
+$('btnSync').onclick = openSyncModal;
+$('syncCancel').onclick = () => syncModal.classList.remove('show');
+syncModal.addEventListener('click', e => { if (e.target === syncModal) syncModal.classList.remove('show'); });
+
+$('btnGenKeys').onclick = async () => {
+  if (!confirm('重新生成密钥对将创建新的云端账号，旧云端数据将无法再访问。是否继续？')) return;
+  try {
+    const k = await App().GenerateSyncKeys();
+    $('syncAuthKey').value = k.authKey;
+    $('syncEncKey').value = k.encKey;
+    $('skoAuth').textContent = k.authKey;
+    $('skoEnc').textContent = k.encKey;
+    $('syncKeyOnce').style.display = 'block';
+    updateSyncStatus(k);
+    toast('新密钥对已生成，请立即复制保存');
+  } catch (e) { toast(String(e), true); }
+};
+
+$('syncKeyOnce').addEventListener('click', async e => {
+  if (!e.target.classList.contains('sko-copy')) return;
+  const id = e.target.dataset.k;
+  const text = $(id).textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    e.target.textContent = '已复制';
+    setTimeout(() => e.target.textContent = '复制', 1200);
+  } catch {
+    // 降级方案
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    e.target.textContent = '已复制';
+    setTimeout(() => e.target.textContent = '复制', 1200);
+  }
+});
+
+$('btnSyncSave').onclick = async () => {
+  const enabled = $('syncEnabled').checked;
+  const endpoint = $('syncEndpoint').value.trim();
+  const authKey = $('syncAuthKey').value.trim();
+  const encKey = $('syncEncKey').value.trim();
+  const sshProxy = $('syncSSHProxy').value.trim();
+  const apiProxy = $('syncAPIProxy').value.trim();
+  try {
+    await App().SaveSyncConfig({ enabled, endpoint, authKey, encKey });
+    await App().SaveProxyConfig({ sshProxy, apiProxy });
+    toast('云同步与代理设置已保存');
+    syncModal.classList.remove('show');
+  } catch (e) { toast(String(e), true); }
+};
+
+$('btnSyncNow').onclick = async () => {
+  $('syncStatus').textContent = '同步中…';
+  try {
+    const msg = await App().SyncNow();
+    toast(msg);
+    $('syncStatus').textContent = msg;
+  } catch (e) { $('syncStatus').textContent = '同步失败：' + e; toast(String(e), true); }
+};
+
+$('btnSyncRestore').onclick = async () => {
+  if (!confirm('从云端恢复将用云端数据覆盖本地主机列表、快捷提示词与快捷命令。是否继续？')) return;
+  $('syncStatus').textContent = '恢复中…';
+  try {
+    const msg = await App().SyncRestore();
+    toast(msg);
+    $('syncStatus').textContent = msg;
+    loadServers(); loadQuickCmds(); loadQuickPrompts();
+  } catch (e) { $('syncStatus').textContent = '恢复失败：' + e; toast(String(e), true); }
+};
+
+window.runtime.EventsOn('sync:applied', () => {
+  loadServers(); loadQuickCmds(); loadQuickPrompts();
+  toast('云端数据已应用到本地');
+});
+window.runtime.EventsOn('sync:done', msg => {
+  if (syncModal.classList.contains('show')) $('syncStatus').textContent = msg;
+});
+window.runtime.EventsOn('sync:error', msg => {
+  if (syncModal.classList.contains('show')) $('syncStatus').textContent = '同步失败：' + msg;
+});
 
 // 显示版本号并静默检查更新
 App().GetVersion().then(v => {
