@@ -116,6 +116,7 @@ func randomID() string {
 // ---------------- SSH 会话 ----------------
 
 const maxPendingBuf = 512 * 1024
+const maxRecentOut = 64 * 1024 // 终端最近输出环形缓冲上限（供 Agent read_terminal 使用）
 
 type SSHSession struct {
 	id      string
@@ -127,11 +128,12 @@ type SSHSession struct {
 	srv         Server    // 连接来源服务器信息（用于连接日志）
 	connectedAt time.Time // 建连成功时刻（用于计算会话时长）
 
-	mu       sync.Mutex
-	attached bool
-	closed   bool
-	exited   bool
-	buf      []byte // 前端订阅事件前缓存输出，防止丢失登录横幅
+	mu        sync.Mutex
+	attached  bool
+	closed    bool
+	exited    bool
+	buf       []byte // 前端订阅事件前缓存输出，防止丢失登录横幅
+	recentOut []byte // 最近输出环形缓冲（上限 64KB）
 }
 
 // ---------------- App ----------------
@@ -142,10 +144,18 @@ type App struct {
 	logs     *logStore
 	mu       sync.Mutex
 	sessions map[string]*SSHSession
+
+	agentMu    sync.Mutex
+	agentCalls map[string]*int             // Agent 工具调用计数（按 agentID，子代理共享）
+	askChans   map[string]chan askResponse // ask_user 阻塞等待通道
 }
 
 func NewApp() *App {
-	return &App{sessions: map[string]*SSHSession{}}
+	return &App{
+		sessions:   map[string]*SSHSession{},
+		agentCalls: map[string]*int{},
+		askChans:   map[string]chan askResponse{},
+	}
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -364,6 +374,11 @@ func (a *App) closeSession(s *SSHSession) {
 
 func (a *App) emitOutput(s *SSHSession, data string) {
 	s.mu.Lock()
+	// 维护最近输出环形缓冲，供 Agent read_terminal 读取
+	s.recentOut = append(s.recentOut, data...)
+	if len(s.recentOut) > maxRecentOut {
+		s.recentOut = s.recentOut[len(s.recentOut)-maxRecentOut:]
+	}
 	if s.closed {
 		s.mu.Unlock()
 		return

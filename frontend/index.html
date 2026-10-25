@@ -652,6 +652,28 @@
     display: flex; align-items: center; gap: 7px;
   }
   #btnAI:hover { transform: translateY(-2px); filter: brightness(1.08); }
+  #aiModeBar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; border-bottom: 1px solid var(--sidebar-border);
+  }
+  #aiModeHint { font-size: 11px; color: var(--text-dim); }
+  .agent-tool-card { font-size: 12px; padding: 8px 12px; }
+  .agent-tool-card summary { cursor: pointer; display: flex; gap: 7px; align-items: center; list-style: none; }
+  .agent-tool-card summary::-webkit-details-marker { display: none; }
+  .agent-tool-card .tool-args {
+    color: var(--text-dim); font-family: "JetBrains Mono", monospace; font-size: 11px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 210px; display: inline-block;
+  }
+  .agent-tool-card .tool-result {
+    margin-top: 8px; background: #06080e; border: 1px solid var(--sidebar-border); border-radius: 8px;
+    padding: 8px; font-family: "JetBrains Mono", monospace; font-size: 11px; color: #b8c5d8;
+    white-space: pre-wrap; word-break: break-all; max-height: 240px; overflow-y: auto;
+  }
+  .ask-question {
+    white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.6;
+    background: var(--bg-2); padding: 12px; border-radius: 9px;
+    border: 1px solid var(--sidebar-border); max-height: 220px; overflow-y: auto;
+  }
 
   /* ---------- 终端命令自动补全弹层 ---------- */
   .ac-popup {
@@ -1041,6 +1063,13 @@
     <button id="btnAISettings" title="AI 接口设置">⚙</button>
     <button id="btnAIClose" title="关闭">✕</button>
   </div>
+  <div id="aiModeBar">
+    <div class="seg" id="aiModeSeg">
+      <button data-mode="chat" class="on">闲聊</button>
+      <button data-mode="agent">Agent</button>
+    </div>
+    <span id="aiModeHint">回答并生成命令</span>
+  </div>
   <div id="aiMessages">
     <div class="ai-empty">
       <span class="big">✦</span>
@@ -1052,6 +1081,25 @@
   <div class="ai-input-area">
     <textarea id="aiInput" placeholder="输入问题，Enter 发送，Shift+Enter 换行" rows="1"></textarea>
     <button id="aiSend">➤</button>
+  </div>
+</div>
+
+<!-- Agent 确认请求弹窗 -->
+<div class="modal-mask" id="agentAskModal">
+  <div class="modal" style="width:460px">
+    <h3>🛡 Agent 请求确认</h3>
+    <div class="form-row">
+      <label>操作内容（120 秒未响应将自动拒绝）</label>
+      <div id="agentAskQuestion" class="ask-question"></div>
+    </div>
+    <div class="form-row">
+      <label>补充说明（可选）</label>
+      <input id="agentAskNote" placeholder="可输入补充要求或拒绝原因" autocomplete="off">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="agentAskReject">拒绝</button>
+      <button class="btn-ok" id="agentAskApprove">批准执行</button>
+    </div>
   </div>
 </div>
 
@@ -1925,6 +1973,12 @@ const aiDrawer = $('aiDrawer'), aiMessages = $('aiMessages'), aiInput = $('aiInp
 let aiHistory = [];
 let aiChatSeq = 0;
 let aiStreaming = false;
+// Agent 模式状态（历史独立于闲聊）
+let aiMode = 'chat';
+let agentHistory = [];
+let agentSeq = 0;
+let agentRunning = false;
+let agentToolEls = {};
 const AI_SYS = '你是「琳东SSH管理软件」内置的 Linux 运维助手。回答要求：1) 简洁直接，优先给可直接执行的命令；' +
   '2) 命令必须放入 ```bash 代码块；3) 危险操作（rm -rf、关机、改防火墙等）要提示风险；4) 中文回答。';
 
@@ -1955,6 +2009,7 @@ function aiAddMessage(role, content) {
 }
 
 async function aiSendMsg() {
+  if (aiMode === 'agent') { agentSendMsg(); return; }
   const text = aiInput.value.trim();
   if (!text || aiStreaming) return;
   let cfg;
@@ -1998,6 +2053,121 @@ async function aiSendMsg() {
 
   const msgs = [{ role: 'system', content: AI_SYS }].concat(aiHistory.slice(-12));
   App().AIChat(chatId, msgs).catch(e => { answer += '\n\n⚠ ' + String(e); finish(false); });
+}
+
+// ---------------- Agent 模式 ----------------
+document.querySelectorAll('#aiModeSeg button').forEach(b => {
+  b.onclick = () => {
+    aiMode = b.dataset.mode;
+    document.querySelectorAll('#aiModeSeg button').forEach(x => x.classList.toggle('on', x === b));
+    $('aiModeHint').textContent = aiMode === 'agent' ? '直接操作当前终端连接的主机' : '回答并生成命令';
+    aiInput.placeholder = aiMode === 'agent' ? '描述运维任务，Agent 将调用工具在当前主机上执行' : '输入问题，Enter 发送，Shift+Enter 换行';
+  };
+});
+
+// 渲染工具调用卡片（折叠式），同 call id 的事件更新同一卡片
+function renderAgentTool(ev) {
+  const empty = aiMessages.querySelector('.ai-empty');
+  if (empty) empty.remove();
+  const cardKey = ev.id || ('seq-' + ev.seq);
+  let card = agentToolEls[cardKey];
+  if (!card) {
+    let argSummary = '';
+    try {
+      const obj = JSON.parse(ev.args || '{}');
+      const keys = Object.keys(obj);
+      if (keys.length) {
+        let v = String(obj[keys[0]]);
+        if (v.length > 80) v = v.slice(0, 80) + '…';
+        argSummary = keys[0] + ': ' + v;
+      }
+    } catch (e) { argSummary = String(ev.args || '').slice(0, 80); }
+    card = document.createElement('div');
+    card.className = 'ai-msg assistant';
+    card.innerHTML = '<div class="av">🔧</div><div class="ai-bubble agent-tool-card">' +
+      '<details><summary><span class="tool-st">⏳</span><b>' + esc(ev.name || '') + '</b>' +
+      '<span class="tool-args">' + esc(argSummary) + '</span></summary>' +
+      '<pre class="tool-result">执行中…</pre></details></div>';
+    agentToolEls[cardKey] = card;
+    aiMessages.appendChild(card);
+  }
+  const st = card.querySelector('.tool-st');
+  const res = card.querySelector('.tool-result');
+  if (ev.status === 'done') st.textContent = '✓';
+  else if (ev.status === 'error') st.textContent = '✗';
+  if (ev.result) {
+    let r = String(ev.result);
+    if (r.length > 500) r = r.slice(0, 500) + '…';
+    res.textContent = r;
+  }
+  aiScrollBottom();
+}
+
+// ask_user 确认弹窗
+const agentAskModal = $('agentAskModal');
+let agentAskTarget = null;
+function openAgentAsk(agentId, ev) {
+  agentAskTarget = agentId;
+  $('agentAskQuestion').textContent = (ev && ev.question) || '';
+  $('agentAskNote').value = '';
+  agentAskModal.classList.add('show');
+}
+function respondAsk(approved) {
+  agentAskModal.classList.remove('show');
+  if (agentAskTarget) {
+    App().RespondAsk(agentAskTarget, approved, $('agentAskNote').value.trim()).catch(() => {});
+  }
+  agentAskTarget = null;
+}
+$('agentAskApprove').onclick = () => respondAsk(true);
+$('agentAskReject').onclick = () => respondAsk(false);
+
+async function agentSendMsg() {
+  const text = aiInput.value.trim();
+  if (!text || agentRunning) return;
+  let cfg;
+  try { cfg = await App().GetAIConfig(); } catch (e) { cfg = {}; }
+  if (!cfg.baseUrl || !cfg.model) { openAISettings(); return; }
+  const tab = tabs.find(t => t.id === activeTabId && t.status === 'connected');
+  if (!tab || !tab.sessionId) { toast('Agent 模式需要先连接主机并激活其终端标签', true); return; }
+
+  aiInput.value = ''; aiInput.style.height = 'auto';
+  aiAddMessage('user', text);
+  const hist = agentHistory.slice(-12); // 不含本次提问，后端会拼接
+  agentHistory.push({ role: 'user', content: text });
+
+  const agentId = 'agent-' + (++agentSeq);
+  agentToolEls = {};
+  agentRunning = true; aiSend.disabled = true;
+  let answer = '';
+
+  const cleanup = () => { unDelta(); unFinal(); unTool(); unAsk(); unErr(); unDone(); };
+  const finish = () => {
+    cleanup();
+    if (answer) agentHistory.push({ role: 'assistant', content: answer });
+    if (agentHistory.length > 40) agentHistory = agentHistory.slice(-40);
+    agentRunning = false; aiSend.disabled = false; aiInput.focus();
+  };
+  const addAnswer = t => {
+    if (!t) return;
+    answer += (answer ? '\n\n' : '') + t;
+    aiAddMessage('assistant', t);
+  };
+  const unDelta = window.runtime.EventsOn('agent:delta:' + agentId, addAnswer);
+  const unFinal = window.runtime.EventsOn('agent:final:' + agentId, addAnswer);
+  const unTool = window.runtime.EventsOn('agent:tool:' + agentId, ev => renderAgentTool(ev));
+  const unAsk = window.runtime.EventsOn('agent:ask:' + agentId, ev => openAgentAsk(agentId, ev));
+  const unErr = window.runtime.EventsOn('agent:error:' + agentId, err => {
+    const b = aiAddMessage('assistant', '⚠ ' + err);
+    b.style.color = 'var(--danger)';
+  });
+  const unDone = window.runtime.EventsOn('agent:done:' + agentId, finish);
+
+  App().AgentChat(agentId, tab.sessionId, hist, text, 0).catch(e => {
+    const b = aiAddMessage('assistant', '⚠ Agent 启动失败：' + String(e));
+    b.style.color = 'var(--danger)';
+    finish();
+  });
 }
 
 // 代码块按钮（复制 / 插入终端）——事件委托

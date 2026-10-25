@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function AIChat(arg1:string,arg2:Array<main.AIMessage>):Promise<void>;
 
+export function AgentChat(arg1:string,arg2:string,arg3:Array<main.AIMessage>,arg4:string,arg5:number):Promise<void>;
+
 export function AddServer(arg1:main.Server):Promise<main.Server>;
 
 export function ApplyUpdate(arg1:string,arg2:number,arg3:string):Promise<void>;
@@ -37,6 +39,8 @@ export function GetVersion():Promise<string>;
 export function Input(arg1:string,arg2:string):Promise<void>;
 
 export function Resize(arg1:string,arg2:number,arg3:number):Promise<void>;
+
+export function RespondAsk(arg1:string,arg2:boolean,arg3:string):Promise<void>;
 
 export function SaveAIConfig(arg1:main.AIConfig):Promise<void>;
 

@@ -6,6 +6,10 @@ export function AIChat(arg1, arg2) {
   return window['go']['main']['App']['AIChat'](arg1, arg2);
 }
 
+export function AgentChat(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['AgentChat'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function AddServer(arg1) {
   return window['go']['main']['App']['AddServer'](arg1);
 }
@@ -72,6 +76,10 @@ export function Input(arg1, arg2) {
 
 export function Resize(arg1, arg2, arg3) {
   return window['go']['main']['App']['Resize'](arg1, arg2, arg3);
+}
+
+export function RespondAsk(arg1, arg2, arg3) {
+  return window['go']['main']['App']['RespondAsk'](arg1, arg2, arg3);
 }
 
 export function SaveAIConfig(arg1) {
