@@ -31,6 +31,9 @@ import (
 // 同步范围：主机列表、快捷提示词、快捷命令（不含 AI 对话记录、API Key）。
 // 云端账号连续 365 天未使用将被自动清理。
 
+// SyncEndpoint 云端同步服务地址（写死，用户无需自行填写）
+const SyncEndpoint = "https://cloud.ldnet.sryze.cc"
+
 type SyncConfig struct {
 	Enabled  bool   `json:"enabled"`
 	Endpoint string `json:"endpoint"` // 云端 KV 服务地址，如 https://sync.example.com（自建见 worker/sync-worker.js）
@@ -51,6 +54,7 @@ func newSyncStore(path string) *syncStore {
 	if data, err := os.ReadFile(path); err == nil {
 		_ = json.Unmarshal(data, &s.cfg)
 	}
+	s.cfg.Endpoint = SyncEndpoint // 始终使用内置云端地址
 	return s
 }
 
@@ -80,6 +84,7 @@ func (a *App) GetSyncConfig() SyncConfig {
 	syncSt.mu.RLock()
 	defer syncSt.mu.RUnlock()
 	c := syncSt.cfg
+	c.Endpoint = SyncEndpoint // 云端地址已内置，无需用户填写
 	c.AuthKey = maskSyncKey(c.AuthKey)
 	c.EncKey = maskSyncKey(c.EncKey)
 	return c
@@ -109,18 +114,13 @@ func (a *App) GenerateSyncKeys() (SyncConfig, error) {
 	return syncSt.cfg, nil
 }
 
-// SaveSyncConfig 保存开关与端点；AuthKey/EncKey 传空或脱敏值时保留原密钥不变
+// SaveSyncConfig 保存开关；AuthKey/EncKey 传空或脱敏值时保留原密钥不变
 // （允许用户粘贴完整密钥以绑定已有云端账号，例如换机恢复场景）
+// 云端地址已内置写死，无需用户填写
 func (a *App) SaveSyncConfig(c SyncConfig) error {
 	syncSt.mu.Lock()
 	defer syncSt.mu.Unlock()
-	c.Endpoint = strings.TrimRight(strings.TrimSpace(c.Endpoint), "/")
-	if c.Enabled && c.Endpoint == "" {
-		return errors.New("开启同步前请填写云端服务地址")
-	}
-	if c.Endpoint != "" && !strings.HasPrefix(c.Endpoint, "https://") && !strings.HasPrefix(c.Endpoint, "http://") {
-		return errors.New("云端服务地址须以 https:// 开头")
-	}
+	c.Endpoint = SyncEndpoint // 云端地址已内置，强制覆盖
 	if strings.Contains(c.AuthKey, "*") || strings.TrimSpace(c.AuthKey) == "" {
 		c.AuthKey = syncSt.cfg.AuthKey
 	} else if !strings.HasPrefix(c.AuthKey, "aiss_") {

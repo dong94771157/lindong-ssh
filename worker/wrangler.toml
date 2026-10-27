@@ -1,0 +1,12 @@
+name = "lindong-ssh-sync"
+main = "sync-worker.js"
+compatibility_date = "2024-06-01"
+workers_dev = true
+
+routes = [
+  { pattern = "cloud.ldnet.sryze.cc", custom_domain = true }
+]
+
+[[kv_namespaces]]
+binding = "SYNC_KV"
+id = "266d5868f0d743cf9a91378cdbd75512"
