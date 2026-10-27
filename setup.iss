@@ -1,6 +1,6 @@
 ﻿; 琳东SSH管理软件 安装脚本 (Inno Setup 6)
 #define MyAppName "琳东SSH管理软件"
-#define MyAppVersion "1.3.0"
+#define MyAppVersion "1.3.1"
 #define MyAppPublisher "琳东"
 #define MyAppExeName "琳东SSH管理软件.exe"
 
@@ -14,7 +14,7 @@ DefaultDirName={localappdata}\Programs\{#MyAppName}
 DefaultGroupName={#MyAppName}
 PrivilegesRequired=lowest
 OutputDir=installer
-OutputBaseFilename=琳东SSH管理软件_Setup_v1.3.0
+OutputBaseFilename=琳东SSH管理软件_Setup_v1.3.1
 SetupIconFile=logo.ico
 UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
@@ -25,11 +25,11 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
 CloseApplications=yes
-VersionInfoVersion=1.3.0.0
+VersionInfoVersion=1.3.1.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription={#MyAppName} 安装程序
 VersionInfoProductName={#MyAppName}
-VersionInfoProductVersion=1.3.0.0
+VersionInfoProductVersion=1.3.1.0
 
 [Languages]
 Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
